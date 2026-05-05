@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -14,7 +14,7 @@ export const createContributionRequest = mutation({
       // Get authenticated user from Clerk
       const identity = await ctx.auth.getUserIdentity();
       if (!identity) {
-        throw new Error("Authentication required: Please sign in to continue");
+        throw new ConvexError("Authentication required: Please sign in to continue");
       }
 
       // Find user by Clerk ID
@@ -25,34 +25,34 @@ export const createContributionRequest = mutation({
 
       if (!user) {
         console.error("User lookup failed for Clerk ID:", identity.subject);
-        throw new Error("User profile not found: Please complete your profile setup");
+        throw new ConvexError("User profile not found: Please complete your profile setup");
       }
 
       // Check if idea exists and get author
       const idea = await ctx.db.get(args.ideaId);
       if (!idea) {
         console.error("Idea lookup failed for ID:", args.ideaId);
-        throw new Error("Idea not found or has been removed");
+        throw new ConvexError("Idea not found or has been removed");
       }
 
       // Check if idea is deleted
       if (idea.isDeleted) {
         console.error("Attempt to create contribution request for deleted idea:", args.ideaId);
-        throw new Error("Cannot create contribution request for a deleted idea");
+        throw new ConvexError("Cannot create contribution request for a deleted idea");
       }
 
       // Prevent author from requesting contribution to their own idea
       if (user._id === idea.authorId) {
-        throw new Error("You cannot request contribution to your own idea");
+        throw new ConvexError("You cannot request contribution to your own idea");
       }
 
       // Validate message
       if (!args.message?.trim()) {
-        throw new Error("Message is required");
+        throw new ConvexError("Message is required");
       }
 
       if (args.message.length > 1200) {
-        throw new Error("Message must be 1200 characters or less");
+        throw new ConvexError("Message must be 1200 characters or less");
       }
 
       const now = Date.now();
@@ -67,7 +67,7 @@ export const createContributionRequest = mutation({
 
       if (existingRequest) {
         console.log("Duplicate request attempt by user:", user.username, "for idea:", args.ideaId);
-        throw new Error("You've already sent a contribution request for this idea");
+        throw new ConvexError("You've already sent a contribution request for this idea");
       }
 
       // Check for existing invitation to prevent duplicates
@@ -83,7 +83,7 @@ export const createContributionRequest = mutation({
 
       if (existingInvitation) {
         console.log("Duplicate invitation exists for user:", user.username, "on idea:", args.ideaId);
-        throw new Error("An invitation is already pending for you on this idea");
+        throw new ConvexError("An invitation is already pending for you on this idea");
       }
 
       // Create the contribution request
@@ -167,7 +167,7 @@ export const getRequestsByIdea = query({
     try {
       const identity = await ctx.auth.getUserIdentity();
       if (!identity) {
-        throw new Error("Authentication required: Please sign in to access requests");
+        throw new ConvexError("Authentication required: Please sign in to access requests");
       }
 
       const user = await ctx.db
@@ -184,7 +184,7 @@ export const getRequestsByIdea = query({
       const idea = await ctx.db.get(args.ideaId);
       if (!idea) {
         console.log("Idea lookup failed for ID:", args.ideaId, "by user:", user.username);
-        throw new Error("Idea not found or has been removed");
+        throw new ConvexError("Idea not found or has been removed");
       }
 
       if (idea.isDeleted) {
@@ -326,7 +326,7 @@ export const getIncomingRequests = query({
     try {
       const identity = await ctx.auth.getUserIdentity();
       if (!identity) {
-        throw new Error("Authentication required: Please sign in to access your requests");
+        throw new ConvexError("Authentication required: Please sign in to access your requests");
       }
 
       const user = await ctx.db
@@ -406,7 +406,7 @@ export const updateRequestStatus = mutation({
     try {
       const identity = await ctx.auth.getUserIdentity();
       if (!identity) {
-        throw new Error("Authentication required: Please sign in to continue");
+        throw new ConvexError("Authentication required: Please sign in to continue");
       }
 
       const user = await ctx.db
@@ -416,19 +416,19 @@ export const updateRequestStatus = mutation({
 
       if (!user) {
         console.error("User lookup failed for Clerk ID:", identity.subject);
-        throw new Error("User profile not found: Please complete your profile setup");
+        throw new ConvexError("User profile not found: Please complete your profile setup");
       }
 
       const request = await ctx.db.get(args.requestId);
       if (!request) {
         console.error("Request lookup failed for ID:", args.requestId);
-        throw new Error("Request not found or has been removed");
+        throw new ConvexError("Request not found or has been removed");
       }
 
       // Only author can update status
       if (request.authorId !== user._id) {
         console.error("Authorization failed: User", user.username, "attempted to update request owned by", request.authorId);
-        throw new Error("Not authorized to update this request");
+        throw new ConvexError("Not authorized to update this request");
       }
 
       // Validate status transition - only allow updates if status is 'pending'
@@ -438,7 +438,7 @@ export const updateRequestStatus = mutation({
           currentStatus: request.status,
           attemptedStatus: args.status
         });
-        throw new Error(`Cannot ${args.status} a request that is already ${request.status}`);
+        throw new ConvexError(`Cannot ${args.status} a request that is already ${request.status}`);
       }
 
       console.log("Updating request status:", args.requestId, "from pending to", args.status, "by user:", user.username);
@@ -453,7 +453,7 @@ export const updateRequestStatus = mutation({
       const updatedRequest = await ctx.db.get(args.requestId);
       if (updatedRequest?.status !== args.status) {
         console.error("Concurrent update conflict detected for request:", args.requestId);
-        throw new Error("Request status update failed due to concurrent modification");
+        throw new ConvexError("Request status update failed due to concurrent modification");
       }
 
       console.log("Successfully updated request:", args.requestId, "to status:", args.status);
