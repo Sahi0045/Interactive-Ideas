@@ -175,7 +175,7 @@ export default function VentureCreatePage() {
                   Boss Encounters
                 </CardTitle>
                 <CardDescription>
-                  Each venture faces 1-2 random bosses from a pool of 12
+                  Each venture faces 1 random super boss from a pool of 12
                 </CardDescription>
               </CardHeader>
               <CardContent>

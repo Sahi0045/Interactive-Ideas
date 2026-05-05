@@ -12,6 +12,7 @@ import { QualityScore } from "./QualityScore";
 import { AudioControls } from "./AudioControls";
 import { QuestList } from "./QuestList";
 import { GoldCounter } from "./GoldCounter";
+import { CorruptionMeter } from "./CorruptionMeter";
 
 import {
   hudVisibleAtom,
@@ -20,6 +21,7 @@ import {
   userProgressAtom,
   stageInfoAtom,
   checkpointProgressAtom,
+  corruptionStateAtom,
   submittingTaskAtom,
   activeTaskAtom,
 } from "@/lib/stores/hudStore";
@@ -32,6 +34,7 @@ const HUDComponent = () => {
   const [userProgress] = useAtom(userProgressAtom);
   const [stageInfo] = useAtom(stageInfoAtom);
   const [checkpointProgress] = useAtom(checkpointProgressAtom);
+  const [corruptionState] = useAtom(corruptionStateAtom);
   const [, setSubmittingTask] = useAtom(submittingTaskAtom);
   const [activeTask] = useAtom(activeTaskAtom);
   const [isMobile, setIsMobile] = useState(false);
@@ -72,7 +75,7 @@ const HUDComponent = () => {
           }}
         >
           <AnimatePresence mode="wait">
-            {(!isMobile || hudExpanded) && (
+            {true && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -82,76 +85,74 @@ const HUDComponent = () => {
               >
                 <div className="px-2 py-1.5 sm:px-3 sm:py-2">
                   <div
-                    className="mx-auto flex max-w-[1400px] items-center justify-between gap-1.5 sm:gap-3 rounded-xl border px-2 py-1.5 sm:px-4"
+                    className="mx-auto flex items-center justify-center gap-2 sm:gap-4 rounded-xl border px-2 py-1.5 sm:px-4"
                     style={{
                       borderColor: "rgba(202, 175, 118, 0.12)",
                       background:
                         "linear-gradient(180deg, rgba(64, 76, 43, 0.32), rgba(78, 72, 41, 0.22))",
                     }}
                   >
-                    {/* Unified HUD Content - Left Section */}
-                    <div className="flex items-center gap-3 sm:gap-6">
-                      <StageInfo
-                        stageName={stageInfo.stageName}
-                        stageIcon={stageInfo.stageIcon}
-                        biomeName={stageInfo.biomeName}
-                        stage={stageInfo.stage}
-                        currentCheckpoint={stageInfo.currentCheckpoint}
-                        totalCheckpointsInStage={stageInfo.totalCheckpointsInStage}
-                        compact={true}
-                      />
-                      
-                      <div className="h-6 w-px bg-[#c8b47a]/15 hidden sm:block" />
-                      
-                      <div className="flex items-center gap-4 sm:gap-6">
-                        <GoldCounter compact={true} />
-                        <CheckpointProgress
-                          completed={checkpointProgress.completed}
-                          total={checkpointProgress.total}
-                          goldCount={checkpointProgress.goldCount}
-                          compact={true}
-                          onClick={() => {
-                            if (activeTask) {
-                              setSubmittingTask(activeTask);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <StageInfo
+                      stageName={stageInfo.stageName}
+                      stageIcon={stageInfo.stageIcon}
+                      biomeName={stageInfo.biomeName}
+                      stage={stageInfo.stage}
+                      currentCheckpoint={stageInfo.currentCheckpoint}
+                      totalCheckpointsInStage={stageInfo.totalCheckpointsInStage}
+                      compact={true}
+                    />
+                    
+                    <div className="h-6 w-px bg-[#c8b47a]/15" />
+                    
+                    <GoldCounter compact={true} />
+                    <CheckpointProgress
+                      completed={checkpointProgress.completed}
+                      total={checkpointProgress.total}
+                      goldCount={checkpointProgress.goldCount}
+                      compact={true}
+                      onClick={() => {
+                        if (activeTask) {
+                          setSubmittingTask(activeTask);
+                        }
+                      }}
+                    />
 
-                    {/* Right Section */}
-                    <div className="flex items-center gap-3 sm:gap-6">
-                      <div className="hidden lg:flex items-center gap-4 sm:gap-6">
-                        <StreakCounter streak={userProgress.streak} compact={true} />
-                        <QualityScore
-                          qualityScore={userProgress.qualityScore}
-                          valuationScore={userProgress.valuationScore}
-                          compact={true}
-                        />
-                      </div>
-                      
-                      <div className="h-6 w-px bg-[#c8b47a]/15 hidden lg:block" />
+                    <div className="h-6 w-px bg-[#c8b47a]/15" />
 
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <LevelDisplay
-                          level={userProgress.level}
-                          phase={userProgress.phase}
-                          compact={true}
-                          onClick={() => {
-                            if (activeTask) {
-                              setSubmittingTask(activeTask);
-                            }
-                          }}
-                        />
-                        <XPBar
-                          currentXP={userProgress.xp}
-                          maxXP={userProgress.xpToNextLevel}
-                          compact={true}
-                        />
-                        <div className="hidden sm:block ml-1">
-                          <AudioControls />
-                        </div>
-                      </div>
+                    <CorruptionMeter
+                      level={corruptionState.level}
+                      phase={corruptionState.phase}
+                      bossName={corruptionState.bossName}
+                      bossHp={corruptionState.bossHp}
+                      bossBaseHp={corruptionState.bossBaseHp}
+                      compact={true}
+                    />
+                    <StreakCounter streak={userProgress.streak} compact={true} />
+                    <QualityScore
+                      qualityScore={userProgress.qualityScore}
+                      valuationScore={userProgress.valuationScore}
+                      compact={true}
+                    />
+
+                    <div className="h-6 w-px bg-[#c8b47a]/15" />
+
+                    <LevelDisplay
+                      level={userProgress.level}
+                      phase={userProgress.phase}
+                      compact={true}
+                      onClick={() => {
+                        if (activeTask) {
+                          setSubmittingTask(activeTask);
+                        }
+                      }}
+                    />
+                    <XPBar
+                      currentXP={userProgress.xp}
+                      maxXP={userProgress.xpToNextLevel}
+                      compact={true}
+                    />
+                    <div className="ml-1">
+                      <AudioControls />
                     </div>
                   </div>
                 </div>
@@ -159,21 +160,7 @@ const HUDComponent = () => {
             )}
           </AnimatePresence>
 
-          {isMobile && (
-            <button
-              onClick={toggleExpanded}
-              className="w-full flex items-center justify-center gap-2 py-2 text-gray-400 hover:text-white transition-colors border-t border-white/5"
-            >
-            {hudExpanded ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-              <span className="text-xs uppercase tracking-wider">
-                {hudExpanded ? "Collapse" : "Expand"} HUD
-              </span>
-            </button>
-          )}
+
         </div>
 
         {activeVenture && (

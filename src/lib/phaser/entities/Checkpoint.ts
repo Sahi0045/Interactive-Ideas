@@ -1,4 +1,5 @@
 import * as Phaser from "phaser";
+import { audioManager } from "../../audio/audioManager";
 
 export type CheckpointStatus =
   | "locked"
@@ -217,6 +218,7 @@ export class CheckpointNode extends Phaser.GameObjects.Container {
 
     this.on("pointerover", () => {
       if (this._status !== "locked") {
+        audioManager.playUI("hover");
         this.scene.tweens.add({
           targets: this,
           scaleX: 1.05,
@@ -245,6 +247,7 @@ export class CheckpointNode extends Phaser.GameObjects.Container {
 
     this.on("pointerdown", () => {
       if (this._status !== "locked") {
+        audioManager.playUI("click");
         this.scene.tweens.add({
           targets: this,
           scaleX: 0.96,

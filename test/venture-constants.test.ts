@@ -253,13 +253,13 @@ describe("Venture Constants", () => {
     });
 
     it("should have venture task points", () => {
-      expect(POINT_VALUES.task_t1_complete).toBe(10);
-      expect(POINT_VALUES.task_t2_complete).toBe(15);
-      expect(POINT_VALUES.task_t3_complete).toBe(25);
+      expect(POINT_VALUES.task_t1_complete).toBe(20);
+      expect(POINT_VALUES.task_t2_complete).toBe(20);
+      expect(POINT_VALUES.task_t3_complete).toBe(35);
     });
 
     it("should have gold checkpoint bonus", () => {
-      expect(POINT_VALUES.gold_checkpoint_bonus).toBe(30);
+      expect(POINT_VALUES.gold_checkpoint_bonus).toBe(25);
     });
 
     it("should have stage and venture completion bonuses", () => {
@@ -287,10 +287,10 @@ describe("Venture Constants", () => {
         "poll",
         "link",
         "upload",
-        "oauth",
         "self_report",
         "journal",
         "kanban",
+        "calendar",
       ];
       expected.forEach((tool) => {
         expect(TOOL_TYPES).toContain(tool);

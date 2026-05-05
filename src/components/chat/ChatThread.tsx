@@ -3,7 +3,7 @@
 import React, { memo, useEffect, useRef, useCallback, useState } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, X, Settings } from "lucide-react";
+import { ArrowLeft, X, Settings, Video } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import MessageBubble from "./MessageBubble";
@@ -108,9 +108,20 @@ const ChatThread: React.FC<ChatThreadProps> = memo(({ conversationId, onBack, on
         </div>
         <div className="flex items-center gap-1">
           {ideaId && activeConversationId && (
-            <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} className="h-8 w-8 hover:bg-muted/50">
-              <Settings className="w-4 h-4" />
-            </Button>
+            <>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => window.open(`https://meet.jit.si/InteractiveVenture_${ideaId}`, '_blank')} 
+                className="h-8 w-8 hover:bg-muted/50"
+                title="Start Video Call"
+              >
+                <Video className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} className="h-8 w-8 hover:bg-muted/50">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </>
           )}
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 -mr-2 hover:bg-muted/50">
             <X className="w-4 h-4" />

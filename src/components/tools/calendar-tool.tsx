@@ -54,6 +54,7 @@ interface CalendarToolProps {
   }) => void;
   initialContent?: { events: CalendarEvent[]; view: string; timestamp: number };
   isSubmitting?: boolean;
+  isStandalone?: boolean;
 }
 
 export function CalendarTool({
@@ -61,6 +62,7 @@ export function CalendarTool({
   onSubmit,
   initialContent,
   isSubmitting,
+  isStandalone,
 }: CalendarToolProps) {
   const [view, setView] = useState<"week" | "month">("month");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -490,7 +492,7 @@ export function CalendarTool({
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Submit Plan ({events.length})
+                {isStandalone ? `Save Plan (${events.length})` : `Submit Plan (${events.length})`}
               </>
             )}
           </Button>

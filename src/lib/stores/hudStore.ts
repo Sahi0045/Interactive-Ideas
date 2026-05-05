@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { Id } from "@convex/_generated/dataModel";
 
 export interface VentureData {
   id: string;
@@ -16,6 +17,14 @@ export interface UserProgress {
   streak: number;
   qualityScore: number;
   valuationScore: number;
+}
+
+export interface CorruptionState {
+  level: number;
+  phase: "calm" | "creeping" | "desaturated" | "urgent" | "critical";
+  bossName: string;
+  bossHp: number;
+  bossBaseHp: number;
 }
 
 export interface HUDVisibility {
@@ -57,6 +66,14 @@ export const audioSettingsAtom = atom({
   muted: false,
 });
 
+export const corruptionStateAtom = atom<CorruptionState>({
+  level: 0,
+  phase: "calm",
+  bossName: "Unknown Boss",
+  bossHp: 100,
+  bossBaseHp: 100,
+});
+
 export const stageInfoAtom = atom({
   stageName: "Ideation",
   stageIcon: "💡",
@@ -75,7 +92,7 @@ export const checkpointProgressAtom = atom({
 // Task system atoms
 export interface SubmittingTask {
   id: string;
-  checkpointId: string;
+  checkpointId: Id<"ventureCheckpoints">;
   taskLevel: "t1" | "t2" | "t3";
   title: string;
   description: string;

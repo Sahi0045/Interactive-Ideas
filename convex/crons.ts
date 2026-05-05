@@ -1,6 +1,7 @@
 import { cronJobs } from "convex/server";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { CORRUPTION_RULES } from "./ventureConstants";
 
 const crons = cronJobs();
 
@@ -29,9 +30,9 @@ crons.daily(
   api.leaderboard.finalizeDailyLeaderboard,
 );
 
-// Schedule: Daily Boss Corruption Increase (for inactive ventures)
+// Schedule: Daily venture corruption update
 crons.daily(
-  "Daily Boss Corruption",
+  "Daily Venture Corruption",
   { hourUTC: 3, minuteUTC: 0 },
   api.crons.dailyBossCorruption,
 );
@@ -57,14 +58,16 @@ export default crons;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Cron job: Increase boss corruption for inactive ventures.
- * Runs daily. Bosses gain 5% corruption per day of inactivity.
+ * Cron job: Increase venture corruption for inactivity and long-lived
+ * 1-of-3 checkpoints. Runs daily.
  */
 export const dailyBossCorruption = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
+    const partialDecayWindowMs =
+      CORRUPTION_RULES.partialCheckpointDecayDays * oneDayMs;
 
     const ventures = await ctx.db
       .query("ventures")
@@ -72,19 +75,58 @@ export const dailyBossCorruption = internalMutation({
       .collect();
 
     for (const venture of ventures) {
-      // Check if venture has been updated in the last 24 hours
-      if (now - venture.updatedAt > oneDayMs) {
+      let nextCorruption = venture.corruptionLevel ?? 0;
+
+      if (now - (venture.lastActivityAt ?? venture.updatedAt) > oneDayMs) {
+        nextCorruption = Math.min(
+          CORRUPTION_RULES.inactivityCap,
+          nextCorruption + CORRUPTION_RULES.dailyInactivityIncrease,
+        );
+      }
+
+      const checkpoints = await ctx.db
+        .query("ventureCheckpoints")
+        .withIndex("by_venture", (q) => q.eq("ventureId", venture._id))
+        .collect();
+
+      for (const checkpoint of checkpoints) {
+        const completedCount = [
+          checkpoint.t1Completed,
+          checkpoint.t2Completed,
+          checkpoint.t3Completed,
+        ].filter(Boolean).length;
+
+        const eligibleForDecay =
+          completedCount === 1 &&
+          checkpoint.partialStartedAt !== undefined &&
+          checkpoint.partialDecayAppliedAt === undefined &&
+          now - checkpoint.partialStartedAt >= partialDecayWindowMs;
+
+        if (!eligibleForDecay) continue;
+
+        nextCorruption = Math.min(
+          CORRUPTION_RULES.max,
+          nextCorruption + CORRUPTION_RULES.partialCheckpointIncrease,
+        );
+        await ctx.db.patch(checkpoint._id, {
+          partialDecayAppliedAt: now,
+        });
+      }
+
+      if (nextCorruption !== (venture.corruptionLevel ?? 0)) {
+        await ctx.db.patch(venture._id, {
+          corruptionLevel: nextCorruption,
+          updatedAt: now,
+        });
+
         const bosses = await ctx.db
           .query("ventureBosses")
-          .withIndex("by_venture_status", (q) =>
-            q.eq("ventureId", venture._id).eq("status", "active"),
-          )
+          .withIndex("by_venture", (q) => q.eq("ventureId", venture._id))
           .collect();
 
         for (const boss of bosses) {
-          const newCorruption = Math.min(100, boss.corruptionLevel + 5);
           await ctx.db.patch(boss._id, {
-            corruptionLevel: newCorruption,
+            corruptionLevel: nextCorruption,
           });
         }
       }

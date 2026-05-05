@@ -13,7 +13,10 @@ import {
   Scroll,
   Target,
   Lock,
-  Map
+  Map,
+  MessageSquare,
+  Video,
+  Rss
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -22,6 +25,7 @@ import { stageInfoAtom } from "@/lib/stores/hudStore";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
+import { useRouter } from "next/navigation";
 
 // Mock data or import if available
 const MILESTONE_DEFINITIONS: Record<string, { title: string; objectives: string[] }> = {
@@ -196,7 +200,7 @@ export function ToolsPanel({ isOpen, onClose, activeTab, onTabChange, activeVent
                 transition={{ duration: 0.2 }}
                 className="h-full"
               >
-                {activeTab === "tools" && <AllToolsGrid searchQuery={searchQuery} onToolSelect={onTabChange} />}
+                {activeTab === "tools" && <AllToolsGrid searchQuery={searchQuery} onToolSelect={onTabChange} activeVentureId={activeVentureId} />}
                 
                 {activeTab === "calendar" && (
                   <div className="space-y-4">
@@ -222,6 +226,7 @@ export function ToolsPanel({ isOpen, onClose, activeTab, onTabChange, activeVent
                       prompt="Craft documentation and notes."
                       initialContent={writeData?.text}
                       onSubmit={(data) => handleToolSubmit("write", data)}
+                      layout="compact"
                     />
                   </div>
                 )}
@@ -281,8 +286,12 @@ export function ToolsPanel({ isOpen, onClose, activeTab, onTabChange, activeVent
   );
 }
 
-function AllToolsGrid({ searchQuery, onToolSelect }: { searchQuery: string; onToolSelect: (id: TabType) => void }) {
+function AllToolsGrid({ searchQuery, onToolSelect, activeVentureId }: { searchQuery: string; onToolSelect: (id: TabType) => void; activeVentureId?: Id<"ventures"> }) {
+  const router = useRouter();
   const tools = [
+    { id: "feed", name: "Contributions", desc: "Project Feed", icon: Rss, color: "#6366f1", isExternal: true, path: "feed" },
+    { id: "chat", name: "Group Chat", desc: "Real-time sync", icon: MessageSquare, color: "#3b82f6", isExternal: true, path: "chat" },
+    { id: "video", name: "Video Call", desc: "Live session", icon: Video, color: "#f43f5e", isExternal: true, path: "video-call" },
     { id: "write", name: "Write Tool", desc: "Craft venture documentation", icon: FileText, color: "#818cf8" },
     { id: "calendar", name: "Calendar", desc: "Schedule milestones", icon: CalendarIcon, color: "#fbbf24" },
     { id: "kanban", name: "Kanban", desc: "Manage task workflow", icon: LayoutDashboard, color: "#34d399" },
@@ -301,7 +310,13 @@ function AllToolsGrid({ searchQuery, onToolSelect }: { searchQuery: string; onTo
       {filteredTools.map((tool) => (
         <motion.button
           key={tool.id}
-          onClick={() => onToolSelect(tool.id as TabType)}
+          onClick={() => {
+            if (tool.isExternal && activeVentureId) {
+              window.open(`/venture/${activeVentureId}/${tool.path}`, "_blank");
+            } else {
+              onToolSelect(tool.id as TabType);
+            }
+          }}
           whileHover={{ y: -4, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-white/10 transition-all text-left group"

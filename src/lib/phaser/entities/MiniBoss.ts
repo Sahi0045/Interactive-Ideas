@@ -206,7 +206,7 @@ export class MiniBoss extends Phaser.GameObjects.Container {
   slay(): void {
     // Safety check - ensure scene and tweens exist
     if (!this.scene || !this.scene.tweens) {
-      console.warn('[MiniBoss] Cannot slay - scene or tweens not available');
+      console.warn("[MiniBoss] Cannot slay - scene or tweens not available");
       this.destroy();
       return;
     }
@@ -257,6 +257,138 @@ export class MiniBoss extends Phaser.GameObjects.Container {
         targets: this,
         alpha: 0,
         duration: 2000,
+        ease: "Sine.easeOut",
+        onComplete: () => {
+          this.destroy();
+        },
+      });
+    }
+  }
+
+  /**
+   * Play the GOLD slay animation - more dramatic than standard slay.
+   * Called when the player completes the stage with a gold checkpoint.
+   */
+  slayGold(): void {
+    // Safety check
+    if (!this.scene || !this.scene.tweens) {
+      console.warn(
+        "[MiniBoss] Cannot slay (gold) - scene or tweens not available",
+      );
+      this.destroy();
+      return;
+    }
+
+    // Stop any ongoing tweens
+    this.scene.tweens.killTweensOf([
+      this,
+      this.bossGraphics,
+      this.cracksGraphics,
+      this.eyeLeft,
+      this.eyeRight,
+      this.namePlate,
+    ]);
+
+    // Create gold particles
+    const particles: Phaser.GameObjects.Arc[] = [];
+    for (let i = 0; i < 20; i++) {
+      const particle = this.scene.add.circle(
+        this.x,
+        this.y,
+        Phaser.Math.Between(2, 6),
+        0xfbbf24,
+        1,
+      );
+      particles.push(particle);
+
+      const angle = (Math.PI * 2 * i) / 20;
+      const distance = Phaser.Math.Between(50, 150);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: this.x + Math.cos(angle) * distance,
+        y: this.y + Math.sin(angle) * distance,
+        alpha: 0,
+        duration: 1500,
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          particle.destroy();
+        },
+      });
+    }
+
+    if (this.bossType === "Fog of Vagueness") {
+      // Gold fog - explodes outward with golden flash
+      this.scene.tweens.add({
+        targets: this.bossGraphics,
+        alpha: 0,
+        scaleX: 2.5,
+        scaleY: 2.5,
+        duration: 2500,
+        ease: "Expo.easeOut",
+      });
+
+      // Pulsing gold glow
+      this.scene.tweens.add({
+        targets: this,
+        alpha: { from: 1, to: 0 },
+        scaleX: { from: 1, to: 2 },
+        scaleY: { from: 1, to: 2 },
+        duration: 2500,
+        ease: "Expo.easeOut",
+        onComplete: () => {
+          this.destroy();
+        },
+      });
+    } else {
+      // Gold wraith - shatters violently with rotation
+      this.scene.tweens.add({
+        targets: this.bossGraphics,
+        alpha: 0,
+        y: this.bossGraphics.y - 50,
+        angle: 360,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        duration: 2000,
+        ease: "Back.easeIn",
+      });
+
+      this.scene.tweens.add({
+        targets: this.cracksGraphics,
+        alpha: 1,
+        scaleX: 2,
+        scaleY: 2,
+        duration: 1200,
+        ease: "Expo.easeOut",
+      });
+
+      // Eyes fly off
+      if (this.eyeLeft) {
+        this.scene.tweens.add({
+          targets: this.eyeLeft,
+          x: this.eyeLeft.x - 60,
+          y: this.eyeLeft.y - 40,
+          alpha: 0,
+          duration: 1500,
+          ease: "Cubic.easeOut",
+        });
+      }
+
+      if (this.eyeRight) {
+        this.scene.tweens.add({
+          targets: this.eyeRight,
+          x: this.eyeRight.x + 60,
+          y: this.eyeRight.y - 40,
+          alpha: 0,
+          duration: 1500,
+          ease: "Cubic.easeOut",
+        });
+      }
+
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 0,
+        duration: 2500,
         ease: "Sine.easeOut",
         onComplete: () => {
           this.destroy();
@@ -329,11 +461,23 @@ export class MiniBoss extends Phaser.GameObjects.Container {
         duration: 900,
         ease: "Cubic.easeIn",
       });
-      this.scene.tweens.add({ targets: this.cracksGraphics, alpha: 0, duration: 400 });
+      this.scene.tweens.add({
+        targets: this.cracksGraphics,
+        alpha: 0,
+        duration: 400,
+      });
       if (this.eyeLeft) {
-        this.scene.tweens.add({ targets: [this.eyeLeft, this.eyeRight], alpha: 0, duration: 400 });
+        this.scene.tweens.add({
+          targets: [this.eyeLeft, this.eyeRight],
+          alpha: 0,
+          duration: 400,
+        });
       }
-      this.scene.tweens.add({ targets: this.namePlate, alpha: 0, duration: 400 });
+      this.scene.tweens.add({
+        targets: this.namePlate,
+        alpha: 0,
+        duration: 400,
+      });
 
       this.scene.tweens.add({
         targets: this,
@@ -362,15 +506,14 @@ export class MiniBoss extends Phaser.GameObjects.Container {
 
   // ── Private: drawing methods ──────────────────────────────────────────────
 
-
   /**
    * Draw "Fog of Vagueness" — grey smoky cloud monster with amber glowing eyes
    * and a dark gaping mouth. Matches IMG_9275 reference.
    */
   private drawFogOfVagueness(): void {
     const g = this.bossGraphics;
-    const cx = 0;  // center X
-    const cy = 0;  // center Y
+    const cx = 0; // center X
+    const cy = 0; // center Y
 
     // ── Outer wispy cloud (lightest grey, largest) ───────────────────────────
     g.fillStyle(0x9ca3af, 0.45);
@@ -408,17 +551,36 @@ export class MiniBoss extends Phaser.GameObjects.Container {
     const pixOffsets = [-30, -20, -10, 0, 10, 20, 30];
     g.fillStyle(0x6b7280, 0.5);
     pixOffsets.forEach((px, i) => {
-      g.fillRect(cx + px - pixSizes[i] / 2, cy + 56 + (i % 3) * 4, pixSizes[i], pixSizes[i]);
+      g.fillRect(
+        cx + px - pixSizes[i] / 2,
+        cy + 56 + (i % 3) * 4,
+        pixSizes[i],
+        pixSizes[i],
+      );
     });
 
     // ── Eyes (glowing amber — matches IMG_9275) ──────────────────────────────
     this.eyeLeft = new Phaser.GameObjects.Arc(
-      this.scene, cx - 10, cy + 12, 5, 0, 360, false, 0xfbbf24,
+      this.scene,
+      cx - 10,
+      cy + 12,
+      5,
+      0,
+      360,
+      false,
+      0xfbbf24,
     );
     this.eyeLeft.setStrokeStyle(2, 0xf59e0b, 1);
 
     this.eyeRight = new Phaser.GameObjects.Arc(
-      this.scene, cx + 10, cy + 12, 5, 0, 360, false, 0xfbbf24,
+      this.scene,
+      cx + 10,
+      cy + 12,
+      5,
+      0,
+      360,
+      false,
+      0xfbbf24,
     );
     this.eyeRight.setStrokeStyle(2, 0xf59e0b, 1);
 
@@ -457,25 +619,25 @@ export class MiniBoss extends Phaser.GameObjects.Container {
     const cy = 0;
 
     // ── Cloak body — dark navy-purple ────────────────────────────────────────
-    g.fillStyle(0x1e1b4b, 0.95);  // deep indigo (matches reference blue-black)
+    g.fillStyle(0x1e1b4b, 0.95); // deep indigo (matches reference blue-black)
     // Main robe trapezoid
     g.beginPath();
-    g.moveTo(cx - 18, cy + 10);   // left shoulder
-    g.lineTo(cx + 18, cy + 10);   // right shoulder
-    g.lineTo(cx + 28, cy + 65);   // bottom right (wider hem)
-    g.lineTo(cx - 28, cy + 65);   // bottom left
+    g.moveTo(cx - 18, cy + 10); // left shoulder
+    g.lineTo(cx + 18, cy + 10); // right shoulder
+    g.lineTo(cx + 28, cy + 65); // bottom right (wider hem)
+    g.lineTo(cx - 28, cy + 65); // bottom left
     g.closePath();
     g.fillPath();
 
     // ── Hood — rounded triangle top ──────────────────────────────────────────
     g.fillStyle(0x1e1b4b, 1);
-    g.fillCircle(cx, cy - 5, 20);   // head behind hood
+    g.fillCircle(cx, cy - 5, 20); // head behind hood
     g.fillStyle(0x0f0a24, 1);
     g.beginPath();
     g.moveTo(cx - 20, cy + 10);
     g.lineTo(cx + 20, cy + 10);
     g.lineTo(cx + 14, cy - 10);
-    g.lineTo(cx, cy - 28);   // hood peak
+    g.lineTo(cx, cy - 28); // hood peak
     g.lineTo(cx - 14, cy - 10);
     g.closePath();
     g.fillPath();
@@ -485,9 +647,9 @@ export class MiniBoss extends Phaser.GameObjects.Container {
     g.fillEllipse(cx, cy + 2, 18, 24);
 
     // ── Cloak shading layers ─────────────────────────────────────────────────
-    g.fillStyle(0x312e81, 0.6);   // lighter indigo highlight on left edge
+    g.fillStyle(0x312e81, 0.6); // lighter indigo highlight on left edge
     g.fillRect(cx - 18, cy + 10, 7, 55);
-    g.fillStyle(0x000000, 0.25);  // dark edge right
+    g.fillStyle(0x000000, 0.25); // dark edge right
     g.fillRect(cx + 11, cy + 10, 7, 55);
 
     // ── Sleeve tips (hands barely visible) ──────────────────────────────────
@@ -503,23 +665,44 @@ export class MiniBoss extends Phaser.GameObjects.Container {
       { y: cy + 84, pixels: [-6, 6], size: 3 },
     ];
     g.fillStyle(0x2d1b69, 0.8);
-    pixRows.forEach(row => {
-      row.pixels.forEach(px => {
+    pixRows.forEach((row) => {
+      row.pixels.forEach((px) => {
         g.fillRect(px - row.size / 2, row.y, row.size, row.size);
       });
     });
     // scattered dissolve pixels below
     g.fillStyle(0x4c1d95, 0.5);
-    [[-18, cy + 90], [-5, cy + 88], [8, cy + 92], [18, cy + 87]].forEach(([px, py]) => {
+    [
+      [-18, cy + 90],
+      [-5, cy + 88],
+      [8, cy + 92],
+      [18, cy + 87],
+    ].forEach(([px, py]) => {
       g.fillRect(px, py as number, 3, 3);
     });
 
     // ── Eyes — faint red glow in hood shadow ────────────────────────────────
     this.eyeLeft = new Phaser.GameObjects.Arc(
-      this.scene, cx - 5, cy + 2, 3, 0, 360, false, 0xdc2626, 0.7,
+      this.scene,
+      cx - 5,
+      cy + 2,
+      3,
+      0,
+      360,
+      false,
+      0xdc2626,
+      0.7,
     );
     this.eyeRight = new Phaser.GameObjects.Arc(
-      this.scene, cx + 5, cy + 2, 3, 0, 360, false, 0xdc2626, 0.7,
+      this.scene,
+      cx + 5,
+      cy + 2,
+      3,
+      0,
+      360,
+      false,
+      0xdc2626,
+      0.7,
     );
 
     // Eye pulse
@@ -626,7 +809,17 @@ export class MiniBoss extends Phaser.GameObjects.Container {
     g.fillRect(offsetX + 75, offsetY + 35, 15, 40);
 
     // Glowing core
-    const core = new Phaser.GameObjects.Arc(this.scene, offsetX + 45, offsetY + 50, 8, 0, 360, false, 0xef4444, 1);
+    const core = new Phaser.GameObjects.Arc(
+      this.scene,
+      offsetX + 45,
+      offsetY + 50,
+      8,
+      0,
+      360,
+      false,
+      0xef4444,
+      1,
+    );
     this.add(core);
     this.scene.tweens.add({
       targets: core,
@@ -634,7 +827,7 @@ export class MiniBoss extends Phaser.GameObjects.Container {
       alpha: 0.5,
       duration: 1000,
       yoyo: true,
-      repeat: -1
+      repeat: -1,
     });
   }
 
@@ -669,7 +862,7 @@ export class MiniBoss extends Phaser.GameObjects.Container {
       duration: 3000,
       yoyo: true,
       repeat: -1,
-      ease: "Sine.easeInOut"
+      ease: "Sine.easeInOut",
     });
   }
 
@@ -691,8 +884,28 @@ export class MiniBoss extends Phaser.GameObjects.Container {
     g.fillStyle(0xdc2626, 0.4);
     g.fillRect(offsetX + 48, offsetY + 30, 4, 40);
 
-    this.eyeLeft = new Phaser.GameObjects.Arc(this.scene, offsetX + 40, offsetY + 15, 4, 0, 360, false, 0xff0000, 1);
-    this.eyeRight = new Phaser.GameObjects.Arc(this.scene, offsetX + 60, offsetY + 15, 4, 0, 360, false, 0xff0000, 1);
+    this.eyeLeft = new Phaser.GameObjects.Arc(
+      this.scene,
+      offsetX + 40,
+      offsetY + 15,
+      4,
+      0,
+      360,
+      false,
+      0xff0000,
+      1,
+    );
+    this.eyeRight = new Phaser.GameObjects.Arc(
+      this.scene,
+      offsetX + 60,
+      offsetY + 15,
+      4,
+      0,
+      360,
+      false,
+      0xff0000,
+      1,
+    );
   }
 
   /**

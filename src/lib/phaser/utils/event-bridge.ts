@@ -62,13 +62,21 @@ export interface CheckpointState {
   /** Checkpoint number within the stage (1-based). */
   checkpoint: number;
   /** Derived display status for the Phaser map node. */
-  status: "locked" | "active" | "in_progress" | "partial" | "completed" | "gold";
+  status:
+    | "locked"
+    | "active"
+    | "in_progress"
+    | "partial"
+    | "completed"
+    | "gold";
   /** Whether Task 1 has been submitted and accepted. */
   t1: boolean;
   /** Whether Task 2 has been submitted and accepted. */
   t2: boolean;
   /** Whether Task 3 has been submitted and accepted. */
   t3: boolean;
+  /** Whether the gold bonus has been earned (all 3 tasks completed). */
+  goldBonusEarned?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +105,12 @@ export type ReactToPhaserEvent =
       personaGender: "male" | "female";
       assignedBosses?: string[];
       currentStage?: number;
+      corruptionLevel?: number;
+      superBoss?: {
+        bossSlug: string;
+        bossName: string;
+        visualStatus: "silhouette" | "present" | "foreground";
+      };
     }
   /** Ask the camera to pan/zoom to bring a checkpoint node into view. */
   | { type: "SCROLL_TO_CHECKPOINT"; checkpointId: string }

@@ -79,7 +79,7 @@ export function UploadTool({ prompt, taskId, onSubmit, initialContent, isSubmitt
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <UploadIcon className="h-5 w-5" />
-          Upload Evidence
+          Upload Evidence (File / Audio / Video)
         </CardTitle>
         <CardDescription>{prompt}</CardDescription>
       </CardHeader>
@@ -112,7 +112,7 @@ export function UploadTool({ prompt, taskId, onSubmit, initialContent, isSubmitt
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            Maximum file size: 50MB. Supported: PDF, DOC, DOCX, XLSX, PPTX, PNG, JPG, MP4
+            Maximum file size: 50MB. Supported: PDF, DOCX, XLSX, PNG, JPG, MP4, MP3, WAV, WEBM
           </p>
         </div>
         <Button

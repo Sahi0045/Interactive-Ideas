@@ -27,6 +27,7 @@ import { FirstCheckpointPulse } from "@/components/map/FirstCheckpointPulse";
 import { GoldCheckpointPopup } from "@/components/notifications/GoldCheckpointPopup";
 import { useSearchParams } from "next/navigation";
 import { TaskSubmissionModal } from "@/components/map/TaskSubmissionModal";
+import { StageClearModal } from "@/components/map/StageClearModal";
 import { LeftSidebar } from "@/components/map/LeftSidebar";
 import { ToolsPanel } from "@/components/map/ToolsPanel";
 import {
@@ -35,6 +36,7 @@ import {
   stageInfoAtom,
   checkpointProgressAtom,
   audioSettingsAtom,
+  corruptionStateAtom,
   submittingTaskAtom,
   currentQuestAtom,
   activeTaskAtom,
@@ -110,25 +112,25 @@ const STAGES: Stage[] = [
     id: 3,
     name: "Validation",
     biome: "The Arena",
-    mini: "Chimera of Doubt",
+    mini: "Advocate of Comfortable Lies",
     glow: "#f472b6", // Pink 400
     checkpoints: 4,
     icon: "✅",
   },
   {
     id: 4,
-    name: "Design",
-    biome: "The Artisan Quarter",
-    mini: "The Pale Architect",
+    name: "Offer Design",
+    biome: "The Artisan's Quarter",
+    mini: "Unfinished Golem",
     glow: "#34d399", // Emerald 400
     checkpoints: 5,
     icon: "🎨",
   },
   {
     id: 5,
-    name: "Development",
+    name: "Build & Deliver",
     biome: "The Mine",
-    mini: "Iron Unraveller",
+    mini: "Collapse Specter",
     glow: "#fb923c", // Orange 400
     checkpoints: 6,
     icon: "⚙️",
@@ -137,7 +139,7 @@ const STAGES: Stage[] = [
     id: 6,
     name: "Launch",
     biome: "The Harbour",
-    mini: "The Gravemind",
+    mini: "Harbourmaster of Hesitation",
     glow: "#38bdf8", // Cyan 400
     checkpoints: 3,
     icon: "🚀",
@@ -145,8 +147,8 @@ const STAGES: Stage[] = [
   {
     id: 7,
     name: "Iteration",
-    biome: "The Crossroads",
-    mini: "Shape-Shifter",
+    biome: "The Crossroads Town",
+    mini: "Babel Merchant",
     glow: "#facc15", // Yellow 400
     checkpoints: 4,
     icon: "🔄",
@@ -155,7 +157,7 @@ const STAGES: Stage[] = [
     id: 8,
     name: "Scale",
     biome: "The Capital",
-    mini: "The Leviathan",
+    mini: "Iron Bureaucrat",
     glow: "#c084fc", // Purple 400
     checkpoints: 5,
     icon: "📈",
@@ -723,14 +725,28 @@ function CrossingFlash({ trigger }: { trigger: number }) {
   );
 }
 
-function PhaseLaunchBanner({ onOpenRoadmap }: { onOpenRoadmap: () => void }) {
+function PhaseLaunchBanner({
+  onOpenRoadmap,
+  onClose,
+}: {
+  onOpenRoadmap: () => void;
+  onClose: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       className="absolute left-4 right-4 top-20 z-40 mx-auto max-w-3xl sm:left-20 sm:right-20"
     >
-      <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/75 p-4 shadow-2xl backdrop-blur-xl">
+      <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/75 p-4 shadow-2xl backdrop-blur-xl relative group">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={onClose}
+          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[10px] text-slate-400 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white z-10 shadow-sm"
+        >
+          ✕
+        </motion.button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
@@ -756,9 +772,11 @@ function PhaseLaunchBanner({ onOpenRoadmap }: { onOpenRoadmap: () => void }) {
 function StageResetNotice({
   baseBrightness,
   stage,
+  onClose,
 }: {
   baseBrightness: number;
   stage: number;
+  onClose: () => void;
 }) {
   return (
     <motion.div
@@ -767,7 +785,15 @@ function StageResetNotice({
       exit={{ opacity: 0, y: 8 }}
       className="absolute bottom-28 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2"
     >
-      <div className="rounded-2xl border border-indigo-400/20 bg-slate-950/85 p-4 text-center shadow-2xl backdrop-blur-xl">
+      <div className="rounded-2xl border border-indigo-400/20 bg-slate-950/85 p-4 text-center shadow-2xl backdrop-blur-xl relative group">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={onClose}
+          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[10px] text-slate-400 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white z-10 shadow-sm"
+        >
+          ✕
+        </motion.button>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">
           New Stage Unlocked
         </p>
@@ -916,6 +942,7 @@ export default function MapPage() {
   const setUserProgressAtom = useSetAtom(userProgressAtom);
   const setStageInfoAtom = useSetAtom(stageInfoAtom);
   const setCheckpointProgressAtom = useSetAtom(checkpointProgressAtom);
+  const setCorruptionStateAtom = useSetAtom(corruptionStateAtom);
   const setCurrentQuestAtom = useSetAtom(currentQuestAtom);
   const setActiveTaskAtom = useSetAtom(activeTaskAtom);
   const [audioSettings, setAudioSettings] = useAtom(audioSettingsAtom);
@@ -1000,6 +1027,7 @@ export default function MapPage() {
   const [flashTrigger, setFlashTrigger] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showStageResetNotice, setShowStageResetNotice] = useState(false);
+  const [showPhaseBanner, setShowPhaseBanner] = useState(true);
   const [isAdvancingCheckpoint, setIsAdvancingCheckpoint] = useState(false);
   const [levelUpData, setLevelUpData] = useState<{
     oldLevel: number;
@@ -1030,8 +1058,19 @@ export default function MapPage() {
     checkpoint: number;
   } | null>(null);
 
+  // Stage clear modal state
+  const [stageClearModal, setStageClearModal] = useState<{
+    show: boolean;
+    stageNumber: number;
+    stageName: string;
+    isGold: boolean;
+  }>({ show: false, stageNumber: 1, stageName: "", isGold: false });
+
   // Task submission state (now using Jotai atom for global access)
   const [submittingTask, setSubmittingTask] = useAtom(submittingTaskAtom);
+  const [optimisticCompletedTaskIds, setOptimisticCompletedTaskIds] = useState<
+    Record<string, true>
+  >({});
 
   // Track previous level to detect level-up events
   const prevLevelRef = useRef<number | null>(null);
@@ -1058,6 +1097,7 @@ export default function MapPage() {
   );
   const brightness = worldMapData?.brightness;
   const ideaTitle = worldMapData?.ideaTitle ?? "Your Venture";
+  const superBoss = worldMapData?.superBoss ?? null;
   type WorldMapCheckpoint = (typeof checkpoints)[number];
   type WorldMapTask = WorldMapCheckpoint["tasks"][number];
   const checkpointEvaluationSummary = useQuery(
@@ -1069,6 +1109,14 @@ export default function MapPage() {
 
   const activeStage = venture?.currentStage ?? 1;
   const activeCP = venture?.currentCheckpoint ?? 1;
+  const corruptionLevel = venture?.corruptionLevel ?? 0;
+  const corruptionPhase = useMemo(() => {
+    if (corruptionLevel >= 90) return "critical" as const;
+    if (corruptionLevel >= 75) return "urgent" as const;
+    if (corruptionLevel >= 50) return "desaturated" as const;
+    if (corruptionLevel >= 25) return "creeping" as const;
+    return "calm" as const;
+  }, [corruptionLevel]);
 
   useEffect(() => {
     if (!venture) return;
@@ -1189,14 +1237,14 @@ export default function MapPage() {
               : t.taskLevel === "t2"
                 ? "medium"
                 : "stretch",
-          done: t.status === "completed",
+          done: !!optimisticCompletedTaskIds[t._id] || t.status === "completed",
           _taskId: t._id,
           _convexCheckpointId: cp._id,
           _taskLevel: t.taskLevel,
         })),
       };
     },
-    [activeStage, activeCP],
+    [activeStage, activeCP, optimisticCompletedTaskIds],
   );
 
   useEffect(() => {
@@ -1561,7 +1609,7 @@ export default function MapPage() {
           label: t.taskLevel.toUpperCase(),
           description: t.prompt,
           tool: t.toolType,
-          done: t.status === "completed",
+          done: !!optimisticCompletedTaskIds[t._id] || t.status === "completed",
         })),
         stage: activeStage,
         checkpoint: activeCP,
@@ -1569,7 +1617,8 @@ export default function MapPage() {
 
       // Find first uncompleted task
       const nextTask = currentCPData.tasks.find(
-        (t: WorldMapTask) => t.status !== "completed",
+        (t: WorldMapTask) =>
+          !optimisticCompletedTaskIds[t._id] && t.status !== "completed",
       );
       if (nextTask) {
         setActiveTaskAtom({
@@ -1584,15 +1633,24 @@ export default function MapPage() {
           toolType: nextTask.toolType,
           points:
             nextTask.taskLevel === "t1"
-              ? 10
+              ? 20
               : nextTask.taskLevel === "t2"
                 ? 20
-                : 30,
+                : 35,
         });
       } else {
         setActiveTaskAtom(null);
       }
     }
+
+    setCorruptionStateAtom({
+      level: corruptionLevel,
+      phase: corruptionPhase,
+      bossName:
+        superBoss?.definition?.name ?? superBoss?.bossName ?? "Unknown Boss",
+      bossHp: superBoss?.currentHp ?? 100,
+      bossBaseHp: superBoss?.baseHp ?? 100,
+    });
   }, [
     venture,
     ideaTitle,
@@ -1600,9 +1658,14 @@ export default function MapPage() {
     activeCP,
     checkpoints,
     completedCount,
+    corruptionLevel,
+    corruptionPhase,
+    optimisticCompletedTaskIds,
+    superBoss,
     setActiveVentureAtom,
     setStageInfoAtom,
     setCheckpointProgressAtom,
+    setCorruptionStateAtom,
     setCurrentQuestAtom,
     setActiveTaskAtom,
   ]);
@@ -1677,6 +1740,17 @@ export default function MapPage() {
         ? venture.assignedBosses.map(String)
         : [],
       currentStage: activeStage,
+      corruptionLevel,
+      superBoss: superBoss
+        ? {
+            bossSlug: superBoss.bossSlug,
+            bossName:
+              superBoss.definition?.name ??
+              superBoss.bossName ??
+              "Unknown Boss",
+            visualStatus: superBoss.visualStatus,
+          }
+        : undefined,
     } as Parameters<typeof eventBridge.dispatchToPhaser>[0]);
 
     eventBridge.dispatchToPhaser({
@@ -1690,7 +1764,9 @@ export default function MapPage() {
     activeStage,
     activeCP,
     brightness,
+    corruptionLevel,
     selectedGender,
+    superBoss,
   ]);
 
   // ── Checkpoint click from Phaser ───────────────────────────────────────────
@@ -1780,10 +1856,113 @@ export default function MapPage() {
         title: task.label,
         description: task.description,
         toolType: task.tool,
-        points: taskLevel === "t1" ? 10 : taskLevel === "t2" ? 20 : 30,
+        points: taskLevel === "t1" ? 20 : taskLevel === "t2" ? 20 : 35,
       });
     },
     [selectedDetail, setSubmittingTask],
+  );
+
+  const handleTaskSubmissionSuccess = useCallback(
+    ({
+      taskId,
+      checkpointId,
+      taskLevel,
+    }: {
+      taskId: string;
+      checkpointId: Id<"ventureCheckpoints">;
+      taskLevel: "t1" | "t2" | "t3";
+    }) => {
+      setOptimisticCompletedTaskIds((current) => ({
+        ...current,
+        [taskId]: true,
+      }));
+
+      const nextLabelMap: Record<"t1" | "t2" | "t3", string> = {
+        t1: "T1",
+        t2: "T2",
+        t3: "T3",
+      };
+
+      setSelectedDetail((current) => {
+        if (!current || current.id !== checkpointId) return current;
+
+        const updatedTasks = current.tasks.map((task) =>
+          task._taskId === taskId ? { ...task, done: true } : task,
+        );
+
+        const doneCount = updatedTasks.filter((task) => task.done).length;
+        const nextTask = updatedTasks.find((task) => !task.done);
+
+        setCurrentQuestAtom({
+          checkpointName: current.title,
+          tasks: updatedTasks.map((task) => ({
+            label: task.label,
+            description: task.description,
+            tool: task.tool,
+            done: task.done,
+          })),
+          stage: current.stage,
+          checkpoint: current.checkpointIndex,
+        });
+
+        if (nextTask && nextTask._convexCheckpointId && nextTask._taskLevel) {
+          setActiveTaskAtom({
+            id:
+              nextTask._taskId ??
+              `${nextTask._convexCheckpointId}_${nextTask._taskLevel}`,
+            checkpointId: nextTask._convexCheckpointId,
+            taskLevel: nextTask._taskLevel,
+            title: nextLabelMap[nextTask._taskLevel],
+            description: nextTask.description,
+            toolType: nextTask.tool,
+            points:
+              nextTask._taskLevel === "t1"
+                ? 20
+                : nextTask._taskLevel === "t2"
+                  ? 20
+                  : 35,
+          });
+
+          setSubmittingTask({
+            id:
+              nextTask._taskId ??
+              `${nextTask._convexCheckpointId}_${nextTask._taskLevel}`,
+            checkpointId: nextTask._convexCheckpointId,
+            taskLevel: nextTask._taskLevel,
+            title: nextLabelMap[nextTask._taskLevel],
+            description: nextTask.description,
+            toolType: nextTask.tool,
+            points:
+              nextTask._taskLevel === "t1"
+                ? 20
+                : nextTask._taskLevel === "t2"
+                  ? 20
+                  : 35,
+          });
+        } else {
+          setActiveTaskAtom(null);
+          setSubmittingTask(null);
+        }
+
+        return {
+          ...current,
+          status:
+            doneCount >= 3 ? "gold" : doneCount >= 2 ? "completed" : "partial",
+          tasks: updatedTasks,
+        };
+      });
+
+      console.log("[MapPage] Task submitted successfully", {
+        checkpointId,
+        taskLevel,
+      });
+    },
+    [
+      setActiveTaskAtom,
+      setCurrentQuestAtom,
+      setSubmittingTask,
+      setOptimisticCompletedTaskIds,
+    ],
   );
 
   // ── Advance checkpoint → Convex mutation ──────────────────────────────────
@@ -1869,7 +2048,25 @@ export default function MapPage() {
       });
 
       if (isLastInStage) {
-        // Stage boundary — close the panel. Convex will update venture.currentStage
+        // Stage boundary — show stage clear modal!
+        const stageNames = [
+          "Ideation",
+          "Research",
+          "Validation",
+          "Offer Design",
+          "Build & Deliver",
+          "Launch",
+          "Iteration",
+          "Scale",
+        ];
+        setStageClearModal({
+          show: true,
+          stageNumber: cp.stage,
+          stageName: stageNames[cp.stage - 1] || "Stage",
+          isGold,
+        });
+
+        // Close the panel. Convex will update venture.currentStage
         // and the useEffect at line ~1038 will auto-open the new active checkpoint.
         setSelectedDetail(null);
         if (nextCpNextStage) {
@@ -2045,21 +2242,48 @@ export default function MapPage() {
 
       {phaserReady && activeVenture && (
         <>
-          {activeStage <= PHASE_ONE_STAGE_LIMIT && (
-            <PhaseLaunchBanner
-              onOpenRoadmap={() => {
-                setActiveToolsTab("roadmap");
-                setIsToolsPanelOpen(true);
-                setSelectedDetail(null);
-              }}
-            />
+          <div
+            className="pointer-events-none absolute inset-0 z-[12] transition-opacity duration-500"
+            style={{
+              opacity:
+                corruptionPhase === "critical"
+                  ? 0.5
+                  : corruptionPhase === "urgent"
+                    ? 0.38
+                    : corruptionPhase === "desaturated"
+                      ? 0.26
+                      : corruptionPhase === "creeping"
+                        ? 0.16
+                        : 0.06,
+              background:
+                corruptionPhase === "critical"
+                  ? "radial-gradient(circle at center, rgba(140, 40, 40, 0.05), rgba(76, 0, 94, 0.52))"
+                  : "radial-gradient(circle at center, rgba(0, 0, 0, 0), rgba(88, 28, 135, 0.55))",
+            }}
+          />
+          {corruptionPhase === "critical" && (
+            <div className="pointer-events-none absolute inset-0 z-[13] animate-pulse border-[10px] border-red-500/25" />
           )}
+
+          <AnimatePresence>
+            {showPhaseBanner && activeStage <= PHASE_ONE_STAGE_LIMIT && (
+              <PhaseLaunchBanner
+                onOpenRoadmap={() => {
+                  setActiveToolsTab("roadmap");
+                  setIsToolsPanelOpen(true);
+                  setSelectedDetail(null);
+                }}
+                onClose={() => setShowPhaseBanner(false)}
+              />
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {showStageResetNotice && brightness && (
               <StageResetNotice
                 baseBrightness={brightness.accumulatedBase}
                 stage={activeStage}
+                onClose={() => setShowStageResetNotice(false)}
               />
             )}
           </AnimatePresence>
@@ -2181,12 +2405,18 @@ export default function MapPage() {
             isOpen={!!submittingTask}
             onClose={() => setSubmittingTask(null)}
             task={submittingTask}
-            onSuccess={() => {
-              // The mutation inside the modal will trigger a Convex update,
-              // but we can also optimistically update the UI here if we want.
-              // For now, relying on Convex is safer.
-              console.log("[MapPage] Task submitted successfully");
-            }}
+            onSuccess={handleTaskSubmissionSuccess}
+          />
+
+          {/* Stage Clear Modal */}
+          <StageClearModal
+            show={stageClearModal.show}
+            stageNumber={stageClearModal.stageNumber}
+            stageName={stageClearModal.stageName}
+            isGold={stageClearModal.isGold}
+            onComplete={() =>
+              setStageClearModal({ ...stageClearModal, show: false })
+            }
           />
         </>
       )}

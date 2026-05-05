@@ -23,7 +23,7 @@ const PATH_AMPLITUDE = 60;
 function calculateCheckpointPosition(
   stage: number,
   checkpoint: number,
-  globalIndex: number,
+  _globalIndex: number,
 ): { x: number; y: number } {
   const biomeZone = stage;
   const biomeStartX = START_X + (biomeZone - 1) * BIOME_WIDTH;
@@ -77,8 +77,8 @@ describe("Snake Path Layout", () => {
         "Ideation",
         "Research",
         "Validation",
-        "Design",
-        "Development",
+        "Offer Design",
+        "Build & Deliver",
         "Launch",
         "Iteration",
         "Scale",

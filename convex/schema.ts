@@ -389,6 +389,8 @@ export default defineSchema({
     personaGender: v.optional(v.union(v.literal("male"), v.literal("female"))),
     currentStage: v.number(), // 1-8
     currentCheckpoint: v.number(), // 1-N within current stage
+    corruptionLevel: v.optional(v.number()), // Backward-compatible for legacy venture rows
+    lastActivityAt: v.optional(v.number()), // Backward-compatible for legacy venture rows
     status: v.union(
       v.literal("active"),
       v.literal("completed"),
@@ -420,6 +422,8 @@ export default defineSchema({
     t2Completed: v.boolean(),
     t3Completed: v.boolean(),
     goldBonusEarned: v.boolean(),
+    partialStartedAt: v.optional(v.number()),
+    partialDecayAppliedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
   })
     .index("by_venture", ["ventureId"])

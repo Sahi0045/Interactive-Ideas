@@ -26,11 +26,14 @@ import {
   Upload,
   ExternalLink,
   HelpCircle,
+  CalendarDays,
+  type LucideIcon,
 } from "lucide-react";
 import {
   CHECKPOINT_DEFINITIONS,
   VENTURE_STAGES,
 } from "@convex/ventureConstants";
+import type { Id } from "@convex/_generated/dataModel";
 import { WriteTool } from "@/components/tools/write-tool";
 import { TableTool } from "@/components/tools/table-tool";
 import { LinkTool } from "@/components/tools/link-tool";
@@ -42,8 +45,9 @@ import { PollTool } from "@/components/tools/poll-tool";
 import { OAuthTool } from "@/components/tools/oauth-tool";
 import { KanbanTool } from "@/components/tools/kanban-tool";
 import { JournalTool } from "@/components/tools/journal-tool";
+import { CalendarTool } from "@/components/tools/calendar-tool";
 
-const TOOL_ICONS: Record<string, any> = {
+const TOOL_ICONS: Record<string, LucideIcon> = {
   write: FileText,
   table: Table2,
   map: Map,
@@ -53,14 +57,39 @@ const TOOL_ICONS: Record<string, any> = {
   survey: HelpCircle,
   poll: HelpCircle,
   self_report: HelpCircle,
+  calendar: CalendarDays,
 };
+
+interface VentureTaskRecord {
+  _id: Id<"ventureTasks">;
+  taskLevel: "t1" | "t2" | "t3";
+  status: string;
+  evidence?: { content?: unknown } | null;
+}
+
+interface VentureCheckpointRecord {
+  _id: Id<"ventureCheckpoints">;
+  stage: number;
+  checkpoint: number;
+  status: string;
+  goldBonusEarned: boolean;
+  t1Completed: boolean;
+  t2Completed: boolean;
+  t3Completed: boolean;
+  tasks?: VentureTaskRecord[];
+}
+
+interface VentureRecord {
+  _id: Id<"ventures">;
+  checkpoints?: VentureCheckpointRecord[];
+}
 
 export default function CheckpointPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromMap = searchParams.get("from") === "map";
-  const ventureId = params.id as string;
+  const ventureId = params.id as Id<"ventures">;
   const stageNum = parseInt(params.stage as string);
   const checkpointNum = parseInt(params.checkpoint as string);
 
@@ -68,16 +97,17 @@ export default function CheckpointPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const venture = useQuery(api.ventures.getVenture, {
-    ventureId: ventureId as any,
-  });
+  const venture = useQuery(api.ventures.getVenture, { ventureId }) as
+    | VentureRecord
+    | null
+    | undefined;
   const submitEvidence = useMutation(api.ventures.submitEvidence);
   const advanceCheckpoint = useMutation(api.ventures.advanceCheckpoint);
   const startCheckpoint = useMutation(api.ventures.startCheckpoint);
   const [advancing, setAdvancing] = useState(false);
 
   const checkpoint = venture?.checkpoints?.find(
-    (cp: any) => cp.stage === stageNum && cp.checkpoint === checkpointNum,
+    (cp) => cp.stage === stageNum && cp.checkpoint === checkpointNum,
   );
 
   const cpDef = CHECKPOINT_DEFINITIONS.find(
@@ -99,17 +129,17 @@ export default function CheckpointPageContent() {
     checkpoint.t2Completed,
     checkpoint.t3Completed,
   ].filter(Boolean).length;
-  const canAdvance = completedCount >= 2;
+  const canAdvance = completedCount >= 2 && checkpoint.status !== "completed";
 
   const handleSubmitEvidence = async (
     taskId: string,
     toolType: string,
-    content: any,
+    content: unknown,
   ) => {
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      await submitEvidence({ taskId: taskId as any, content });
+      await submitEvidence({ taskId: taskId as Id<"ventureTasks">, content });
       setActiveTask(null);
     } catch (error) {
       console.error("Failed to submit evidence:", error);
@@ -134,7 +164,7 @@ export default function CheckpointPageContent() {
         return;
       }
       const nextCp = venture.checkpoints?.find(
-        (cp: any) =>
+        (cp) =>
           cp.stage === stageNum && cp.checkpoint === checkpointNum + 1,
       );
       if (nextCp) {
@@ -143,7 +173,7 @@ export default function CheckpointPageContent() {
         );
       } else {
         const nextStage = venture.checkpoints?.find(
-          (cp: any) => cp.stage === stageNum + 1 && cp.checkpoint === 1,
+          (cp) => cp.stage === stageNum + 1 && cp.checkpoint === 1,
         );
         if (nextStage) {
           router.push(
@@ -169,12 +199,16 @@ export default function CheckpointPageContent() {
     }
   };
 
-  const renderTool = (task: any, def: { prompt: string; tool: string }) => {
+  const renderTool = (
+    task: VentureTaskRecord,
+    def: { prompt: string; tool: string },
+  ) => {
+    const initialContent = task?.evidence?.content as never;
     const props = {
       prompt: def.prompt,
-      onSubmit: (content: any) =>
+      onSubmit: (content: unknown) =>
         handleSubmitEvidence(task._id, def.tool, content),
-      initialContent: task?.evidence?.content,
+      initialContent,
       isSubmitting: submitting,
     };
 
@@ -201,6 +235,8 @@ export default function CheckpointPageContent() {
         return <KanbanTool {...props} />;
       case "journal":
         return <JournalTool {...props} />;
+      case "calendar":
+        return <CalendarTool {...props} />;
       default:
         return <WriteTool {...props} />;
     }
@@ -259,21 +295,21 @@ export default function CheckpointPageContent() {
         <div className="space-y-6">
           {[
             {
-              task: checkpoint.tasks?.find((t: any) => t.taskLevel === "t1"),
+              task: checkpoint.tasks?.find((t) => t.taskLevel === "t1"),
               def: cpDef.t1,
               level: "t1",
               label: "Task 1 — Easy",
               desc: "20% points",
             },
             {
-              task: checkpoint.tasks?.find((t: any) => t.taskLevel === "t2"),
+              task: checkpoint.tasks?.find((t) => t.taskLevel === "t2"),
               def: cpDef.t2,
               level: "t2",
               label: "Task 2 — Medium",
               desc: "20% points",
             },
             {
-              task: checkpoint.tasks?.find((t: any) => t.taskLevel === "t3"),
+              task: checkpoint.tasks?.find((t) => t.taskLevel === "t3"),
               def: cpDef.t3,
               level: "t3",
               label: "Task 3 — Stretch",
@@ -354,7 +390,7 @@ export default function CheckpointPageContent() {
                 variant="outline"
                 onClick={() => {
                   const nextCp = venture.checkpoints?.find(
-                    (cp: any) =>
+                    (cp) =>
                       cp.stage === stageNum &&
                       cp.checkpoint === checkpointNum + 1,
                   );
@@ -364,7 +400,7 @@ export default function CheckpointPageContent() {
                     );
                   } else {
                     const nextStage = venture.checkpoints?.find(
-                      (cp: any) =>
+                      (cp) =>
                         cp.stage === stageNum + 1 && cp.checkpoint === 1,
                     );
                     if (nextStage) {
@@ -402,7 +438,7 @@ function TaskCard({
   onStartCheckpoint,
   errorMessage,
 }: {
-  task: any;
+  task: VentureTaskRecord | undefined;
   def: { prompt: string; tool: string };
   level: string;
   label: string;

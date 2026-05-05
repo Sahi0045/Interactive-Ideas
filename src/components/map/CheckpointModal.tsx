@@ -30,20 +30,20 @@ interface CheckpointModalProps {
 
 const STAGE_NAMES = [
   "Ideation",
-  "Research", 
+  "Research",
   "Validation",
-  "Design",
-  "Development",
+  "Offer Design",
+  "Build & Deliver",
   "Launch",
   "Iteration",
-  "Scale"
+  "Scale",
 ];
 
 const TASK_DESCRIPTIONS = {
   t1: {
     title: "Foundation Task",
     description: "Complete the basic requirements for this checkpoint",
-    points: 10
+    points: 20
   },
   t2: {
     title: "Advanced Task",
@@ -53,8 +53,8 @@ const TASK_DESCRIPTIONS = {
   t3: {
     title: "Excellence Task",
     description: "Go above and beyond for maximum impact",
-    points: 30
-  }
+    points: 35
+  },
 };
 
 export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModalProps) {
@@ -76,7 +76,10 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
   const isGold = checkpoint.status === "gold";
 
   const completedTasks = [checkpoint.t1, checkpoint.t2, checkpoint.t3].filter(Boolean).length;
-  const totalPoints = (checkpoint.t1 ? 10 : 0) + (checkpoint.t2 ? 20 : 0) + (checkpoint.t3 ? 30 : 0);
+  const totalPoints =
+    (checkpoint.t1 ? 20 : 0) +
+    (checkpoint.t2 ? 20 : 0) +
+    (checkpoint.t3 ? 35 : 0);
 
   const handleTaskClick = (taskLevel: "t1" | "t2" | "t3") => {
     const taskData = TASK_DESCRIPTIONS[taskLevel];
@@ -92,6 +95,7 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
   };
 
   const handleSubmissionSuccess = () => {
+    setSelectedTask(null);
     // Refresh checkpoint data
     window.location.reload(); // Simple refresh for now - can be optimized with proper state management
   };
@@ -201,7 +205,6 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
                   <div className="space-y-4">
                     {/* Task 1 */}
                     <TaskCard
-                      task="t1"
                       completed={checkpoint.t1}
                       onTaskClick={() => handleTaskClick("t1")}
                       {...TASK_DESCRIPTIONS.t1}
@@ -209,7 +212,6 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
 
                     {/* Task 2 */}
                     <TaskCard
-                      task="t2"
                       completed={checkpoint.t2}
                       onTaskClick={() => handleTaskClick("t2")}
                       {...TASK_DESCRIPTIONS.t2}
@@ -217,7 +219,6 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
 
                     {/* Task 3 */}
                     <TaskCard
-                      task="t3"
                       completed={checkpoint.t3}
                       onTaskClick={() => handleTaskClick("t3")}
                       {...TASK_DESCRIPTIONS.t3}
@@ -288,14 +289,12 @@ export function CheckpointModal({ isOpen, onClose, checkpoint }: CheckpointModal
 }
 
 function TaskCard({ 
-  task, 
   title, 
   description, 
   points, 
   completed,
   onTaskClick 
 }: { 
-  task: string;
   title: string;
   description: string;
   points: number;

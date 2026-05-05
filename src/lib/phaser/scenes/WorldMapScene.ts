@@ -123,7 +123,7 @@ const BIOME_CONFIGS: BiomeConfig[] = [
     id: 7,
     name: "The Crossroads Town",
     theme: "Iteration",
-    visualTheme: "forest",
+    visualTheme: "crossroads",
     colors: {
       sky: 0x4c1d95, // Violet 900
       ground: 0x2e1065, // Violet 950
@@ -136,7 +136,7 @@ const BIOME_CONFIGS: BiomeConfig[] = [
     id: 8,
     name: "The Capital",
     theme: "Scale",
-    visualTheme: "crossroads",
+    visualTheme: "capital",
     colors: {
       sky: 0x713f12, // Yellow 900 (Goldish)
       ground: 0x422006, // Yellow 950
@@ -167,6 +167,9 @@ export class WorldMapScene extends Phaser.Scene {
   private miniBosses: Map<number, MiniBoss>;
   /** Stages whose mini-boss has already played the retreat animation this session */
   private retreatedStages: Set<number> = new Set();
+  /** Residual path markers for partially completed stages */
+  private residualMarkers: Map<number, Phaser.GameObjects.Container> =
+    new Map();
 
   // Scene layers
   private map!: Phaser.Tilemaps.Tilemap;
@@ -185,6 +188,7 @@ export class WorldMapScene extends Phaser.Scene {
   // Venture state
   private currentVentureId: string | null;
   private currentStage: number = 1;
+  private currentCorruptionLevel: number = 0;
   private completedStages: number = 0;
   private stageTasksCompleted: number = 0;
   private stageTasksTotal: number = 0;
@@ -198,6 +202,12 @@ export class WorldMapScene extends Phaser.Scene {
       personaGender: "male" | "female";
       assignedBosses?: string[];
       currentStage?: number;
+      corruptionLevel?: number;
+      superBoss?: {
+        bossSlug: string;
+        bossName: string;
+        visualStatus: "silhouette" | "present" | "foreground";
+      };
     }) => void;
     scrollToCheckpoint?: (event: { checkpointId: string }) => void;
     playCheckpointAnimation?: (event: {
@@ -2320,7 +2330,8 @@ export class WorldMapScene extends Phaser.Scene {
     BIOME_CONFIGS.forEach((biome, index) => {
       const biomeX = index * this.BIOME_WIDTH;
 
-      let particleConfig: any = null;
+      let particleConfig: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig | null =
+        null;
 
       switch (biome.id) {
         case 2: // Forest - Falling leaves
@@ -2660,7 +2671,7 @@ export class WorldMapScene extends Phaser.Scene {
       { x: 154, y: 438 },
       { x: 292, y: 336 },
       { x: 486, y: 286 },
-      { x: 720, y: 292 },
+      { x: 620, y: 350 },
     ];
     if (stageId === 1) {
       const anchor =
@@ -2706,14 +2717,24 @@ export class WorldMapScene extends Phaser.Scene {
   /**
    * Creates the Super Boss silhouette visible across entire map
    */
-  private createSuperBoss(): void {
+  private createSuperBoss(
+    bossSlug: string = "the_gravemind",
+    bossName: string = "The Gravemind",
+    status: "silhouette" | "present" | "foreground" = "silhouette",
+  ): void {
+    const existingBoss = this.bosses.get("super_boss");
+    if (existingBoss) {
+      existingBoss.destroy();
+      this.bosses.delete("super_boss");
+    }
+
     const superBossX = this.MAP_WIDTH - 400;
     const superBossY = this.MAP_HEIGHT / 2;
 
     const superBoss = new BossSilhouette(this, {
-      bossId: "super_boss",
-      bossName: "The Gravemind",
-      status: "silhouette",
+      bossId: bossSlug,
+      bossName,
+      status,
       x: superBossX,
       y: superBossY,
     });
@@ -2822,7 +2843,13 @@ export class WorldMapScene extends Phaser.Scene {
    * Stage layer = (current stage tasks done / current stage tasks total) × 40%
    * World brightness = accumulated base + stage layer (0% to 100%)
    */
-  private handleUpdateBrightness(): void {
+  private handleUpdateBrightness(event?: { brightness: number }): void {
+    if (typeof event?.brightness === "number") {
+      this.currentBrightness = Math.max(0, Math.min(100, event.brightness));
+      this.updateBrightnessFilter(this.currentBrightness);
+      return;
+    }
+
     // Calculate accumulated base brightness from completed stages (7 stages max = 60%)
     const accumulatedBase = Math.min(this.completedStages * 8.57, 60);
 
@@ -2838,8 +2865,8 @@ export class WorldMapScene extends Phaser.Scene {
     // Clamp to 0-100%
     const finalBrightness = Math.max(0, Math.min(100, worldBrightness));
 
-    this.currentBrightness = 100;
-    this.updateBrightnessFilter(100);
+    this.currentBrightness = finalBrightness;
+    this.updateBrightnessFilter(finalBrightness);
 
     console.log(
       `[WorldMapScene] Brightness: 100% (Forced) Original: ${finalBrightness.toFixed(2)}% (Base: ${accumulatedBase.toFixed(2)}% + Stage: ${stageLayer.toFixed(2)}%)`,
@@ -2945,30 +2972,46 @@ export class WorldMapScene extends Phaser.Scene {
       if (!progress) continue;
 
       const { completed, total } = progress;
+      const stageCheckpoints = checkpoints
+        .filter((cp) => cp.stage === stage)
+        .sort((a, b) => a.checkpoint - b.checkpoint);
+      const finalCheckpoint = stageCheckpoints[stageCheckpoints.length - 1];
+      const finalCheckpointCompleted =
+        finalCheckpoint?.status === "completed" ||
+        finalCheckpoint?.status === "gold";
+      const halfComplete = total > 0 && completed >= Math.ceil(total / 2);
 
       // Check if stage is fully complete
       const stageComplete = completed === total && total > 0;
 
-      // Check if player has moved past this stage with only partial completion
-      // (e.g. stage transitions without fully finishing — rare but possible)
       const playerMovedPast = stage < this.currentStage;
-      const partiallyComplete = completed > 0 && !stageComplete;
 
       if (stageComplete) {
         // Slay the boss when stage is complete
         if (miniBoss && miniBoss.active) {
-          miniBoss.slay();
+          // Use gold slay if final checkpoint is gold
+          if (finalCheckpoint?.goldBonusEarned) {
+            miniBoss.slayGold();
+            this.transformBiomeGold(stage);
+          } else {
+            miniBoss.slay();
+            this.restoreBiome(stage);
+          }
           this.retreatedStages.delete(stage); // slay supersedes retreat
+          // Remove residual marker if it exists
+          this.removeResidualMarker(stage);
         }
       } else if (
         playerMovedPast &&
-        partiallyComplete &&
+        halfComplete &&
+        !finalCheckpointCompleted &&
         !this.retreatedStages.has(stage)
       ) {
-        // Player advanced past this stage without finishing — boss retreats (PRD §4.2)
         if (miniBoss && miniBoss.active) {
           miniBoss.retreat();
           this.retreatedStages.add(stage);
+          // Create residual marker at boss position
+          this.createResidualMarker(stage, miniBoss.x, miniBoss.y);
           console.log(
             `[WorldMapScene] 🌑 Mini-boss Stage ${stage} retreated (partial progress: ${completed}/${total})`,
           );
@@ -2990,9 +3033,16 @@ export class WorldMapScene extends Phaser.Scene {
     personaGender: "male" | "female";
     assignedBosses?: string[];
     currentStage?: number;
+    corruptionLevel?: number;
+    superBoss?: {
+      bossSlug: string;
+      bossName: string;
+      visualStatus: "silhouette" | "present" | "foreground";
+    };
   }): void {
     try {
       this.currentVentureId = event.ventureId;
+      this.currentCorruptionLevel = event.corruptionLevel ?? 0;
       this.retreatedStages.clear(); // Reset retreat state for fresh venture session
 
       // Create persona if doesn't exist
@@ -3015,6 +3065,17 @@ export class WorldMapScene extends Phaser.Scene {
         console.log(
           `[WorldMapScene] Playing ambience for stage ${event.currentStage}`,
         );
+      }
+
+      const nextBossStatus = event.superBoss?.visualStatus ?? "silhouette";
+      this.createSuperBoss(
+        event.superBoss?.bossSlug ?? "the_gravemind",
+        event.superBoss?.bossName ?? "The Gravemind",
+        nextBossStatus,
+      );
+
+      if (this.currentCorruptionLevel >= 90) {
+        this.bosses.get("super_boss")?.entrance();
       }
 
       // Position persona on active checkpoint
@@ -3276,8 +3337,9 @@ export class WorldMapScene extends Phaser.Scene {
   private setupGamepadListeners(): void {
     if (typeof window === "undefined") return;
 
-    window.addEventListener("phaser-input", (e: any) => {
-      const { type } = e.detail;
+    window.addEventListener("phaser-input", (e: Event) => {
+      const customEvent = e as CustomEvent<{ type: string }>;
+      const { type } = customEvent.detail;
 
       switch (type) {
         case "DIR_LEFT":
@@ -3374,5 +3436,284 @@ export class WorldMapScene extends Phaser.Scene {
     });
 
     return positions;
+  }
+
+  /**
+   * Transform biome with gold completion effects - color floods, particles, elevation
+   */
+  private transformBiomeGold(stage: number): void {
+    const stageBiome = BIOME_CONFIGS[stage - 1];
+    if (!stageBiome) return;
+
+    // Get stage bounds
+    const stageCheckpoints = Array.from(this.checkpointNodes.values()).filter(
+      (node) => node.stage === stage,
+    );
+    if (stageCheckpoints.length === 0) return;
+
+    const minX = Math.min(...stageCheckpoints.map((n) => n.x));
+    const maxX = Math.max(...stageCheckpoints.map((n) => n.x));
+    const centerX = (minX + maxX) / 2;
+    const centerY = 400;
+
+    // Gold particle burst
+    for (let i = 0; i < 50; i++) {
+      const angle = (Math.PI * 2 * i) / 50;
+      const distance = Phaser.Math.Between(100, 300);
+      const particle = this.add.circle(
+        centerX,
+        centerY,
+        Phaser.Math.Between(3, 8),
+        0xfbbf24,
+        1,
+      );
+      this.animationLayer.add(particle);
+
+      this.tweens.add({
+        targets: particle,
+        x: centerX + Math.cos(angle) * distance,
+        y: centerY + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0,
+        duration: 2000,
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          particle.destroy();
+        },
+      });
+    }
+
+    // Color flood effect - golden wave
+    const colorFlood = this.add.rectangle(
+      centerX,
+      centerY,
+      maxX - minX + 400,
+      800,
+      0xfbbf24,
+      0,
+    );
+    this.animationLayer.add(colorFlood);
+
+    this.tweens.add({
+      targets: colorFlood,
+      alpha: { from: 0, to: 0.4 },
+      scaleX: { from: 0.5, to: 1.2 },
+      scaleY: { from: 0.5, to: 1.2 },
+      duration: 1200,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: colorFlood,
+          alpha: 0,
+          duration: 1300,
+          ease: "Sine.easeIn",
+          onComplete: () => {
+            colorFlood.destroy();
+          },
+        });
+      },
+    });
+
+    // Sparkle particles
+    for (let i = 0; i < 30; i++) {
+      setTimeout(() => {
+        const x = Phaser.Math.Between(minX - 100, maxX + 100);
+        const y = Phaser.Math.Between(200, 600);
+        const sparkle = this.add.star(
+          x,
+          y,
+          5,
+          Phaser.Math.Between(4, 10),
+          Phaser.Math.Between(8, 20),
+          0xfacc15,
+          1,
+        );
+        this.animationLayer.add(sparkle);
+
+        this.tweens.add({
+          targets: sparkle,
+          alpha: 0,
+          y: y - 100,
+          angle: 360,
+          duration: 1500,
+          ease: "Cubic.easeOut",
+          onComplete: () => {
+            sparkle.destroy();
+          },
+        });
+      }, i * 50);
+    }
+
+    console.log(
+      `[WorldMapScene] 🌟 Gold biome transformation for stage ${stage}`,
+    );
+  }
+
+  /**
+   * Restore biome visually after standard stage completion
+   */
+  private restoreBiome(stage: number): void {
+    const stageBiome = BIOME_CONFIGS[stage - 1];
+    if (!stageBiome) return;
+
+    // Get stage bounds
+    const stageCheckpoints = Array.from(this.checkpointNodes.values()).filter(
+      (node) => node.stage === stage,
+    );
+    if (stageCheckpoints.length === 0) return;
+
+    const minX = Math.min(...stageCheckpoints.map((n) => n.x));
+    const maxX = Math.max(...stageCheckpoints.map((n) => n.x));
+    const centerX = (minX + maxX) / 2;
+    const centerY = 400;
+
+    // Restoration particle effect
+    for (let i = 0; i < 20; i++) {
+      const angle = (Math.PI * 2 * i) / 20;
+      const distance = Phaser.Math.Between(80, 200);
+      const particle = this.add.circle(
+        centerX,
+        centerY,
+        Phaser.Math.Between(2, 5),
+        stageBiome.colors.accent2,
+        0.8,
+      );
+      this.animationLayer.add(particle);
+
+      this.tweens.add({
+        targets: particle,
+        x: centerX + Math.cos(angle) * distance,
+        y: centerY + Math.sin(angle) * distance,
+        alpha: 0,
+        duration: 1500,
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          particle.destroy();
+        },
+      });
+    }
+
+    // Gentle color wash
+    const colorWash = this.add.rectangle(
+      centerX,
+      centerY,
+      maxX - minX + 300,
+      700,
+      stageBiome.colors.accent1,
+      0,
+    );
+    this.animationLayer.add(colorWash);
+
+    this.tweens.add({
+      targets: colorWash,
+      alpha: { from: 0, to: 0.2 },
+      duration: 1000,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: colorWash,
+          alpha: 0,
+          duration: 1000,
+          ease: "Sine.easeIn",
+          onComplete: () => {
+            colorWash.destroy();
+          },
+        });
+      },
+    });
+
+    console.log(`[WorldMapScene] ✨ Biome restored for stage ${stage}`);
+  }
+
+  /**
+   * Create residual path marker when boss retreats
+   */
+  private createResidualMarker(
+    stage: number,
+    bossX: number,
+    bossY: number,
+  ): void {
+    // Remove existing marker if present
+    this.removeResidualMarker(stage);
+
+    const container = this.add.container(bossX, bossY);
+    this.midgroundLayer.add(container);
+
+    // Faded silhouette
+    const silhouette = this.add.circle(0, 0, 30, 0x6b7280, 0.3);
+    container.add(silhouette);
+
+    // Crack/scar in the ground
+    const crack = this.add.graphics();
+    crack.lineStyle(2, 0x52525b, 0.5);
+    crack.beginPath();
+    crack.moveTo(-20, 40);
+    crack.lineTo(-10, 50);
+    crack.moveTo(0, 40);
+    crack.lineTo(0, 55);
+    crack.moveTo(10, 40);
+    crack.lineTo(15, 50);
+    crack.strokePath();
+    container.add(crack);
+
+    // Lingering fog particles
+    for (let i = 0; i < 3; i++) {
+      const fogParticle = this.add.circle(
+        Phaser.Math.Between(-15, 15),
+        Phaser.Math.Between(-10, 10),
+        Phaser.Math.Between(3, 6),
+        0x9ca3af,
+        0.2,
+      );
+      container.add(fogParticle);
+
+      this.tweens.add({
+        targets: fogParticle,
+        alpha: { from: 0.2, to: 0.05 },
+        y: fogParticle.y - 5,
+        duration: 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    // Pulse effect
+    this.tweens.add({
+      targets: silhouette,
+      alpha: { from: 0.3, to: 0.15 },
+      scale: { from: 1, to: 1.1 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.residualMarkers.set(stage, container);
+
+    console.log(
+      `[WorldMapScene] 🌫️ Residual marker created for stage ${stage}`,
+    );
+  }
+
+  /**
+   * Remove residual marker when stage is completed
+   */
+  private removeResidualMarker(stage: number): void {
+    const marker = this.residualMarkers.get(stage);
+    if (marker) {
+      this.tweens.add({
+        targets: marker,
+        alpha: 0,
+        duration: 1000,
+        onComplete: () => {
+          marker.destroy();
+        },
+      });
+      this.residualMarkers.delete(stage);
+      console.log(
+        `[WorldMapScene] 🌟 Residual marker removed for stage ${stage}`,
+      );
+    }
   }
 }

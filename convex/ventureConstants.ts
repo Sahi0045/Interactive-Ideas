@@ -1019,6 +1019,206 @@ export const BOSS_DEFINITIONS: BossDef[] = [
   },
 ];
 
+export const CORRUPTION_RULES = {
+  dailyInactivityIncrease: 5,
+  partialCheckpointIncrease: 10,
+  partialCheckpointDecayDays: 5,
+  standardCheckpointClearReduction: 12,
+  goldCheckpointClearReduction: 25,
+  contributionUpdateReduction: 5,
+  inactivityCap: 80,
+  max: 100,
+  thresholds: [25, 50, 75, 90] as const,
+} as const;
+
+export const BOSS_BASE_HP = 100;
+
+export type StageOutcome =
+  | "not_started"
+  | "in_progress"
+  | "partial_stage"
+  | "stage_clear"
+  | "gold_stage";
+
+export type ProjectOutcome =
+  | "in_progress"
+  | "partial_project"
+  | "project_complete"
+  | "project_perfect";
+
+type StageCheckpointState = {
+  stage: number;
+  checkpoint: number;
+  status: string;
+  goldBonusEarned?: boolean;
+};
+
+export function getStageOutcome(
+  stageId: number,
+  checkpoints: StageCheckpointState[],
+): {
+  outcome: StageOutcome;
+  total: number;
+  completed: number;
+  gold: number;
+  finalCheckpointCompleted: boolean;
+  finalCheckpointGold: boolean;
+  monsterState: "active" | "retreated" | "slain";
+} {
+  const stageCheckpoints = checkpoints.filter((checkpoint) => checkpoint.stage === stageId);
+
+  if (stageCheckpoints.length === 0) {
+    return {
+      outcome: "not_started",
+      total: 0,
+      completed: 0,
+      gold: 0,
+      finalCheckpointCompleted: false,
+      finalCheckpointGold: false,
+      monsterState: "active",
+    };
+  }
+
+  const total = stageCheckpoints.length;
+  const completed = stageCheckpoints.filter(
+    (checkpoint) => checkpoint.status === "completed",
+  ).length;
+  const gold = stageCheckpoints.filter((checkpoint) => checkpoint.goldBonusEarned).length;
+  const finalCheckpoint = [...stageCheckpoints].sort(
+    (left, right) => right.checkpoint - left.checkpoint,
+  )[0];
+  const finalCheckpointCompleted = finalCheckpoint?.status === "completed";
+  const finalCheckpointGold = !!finalCheckpoint?.goldBonusEarned;
+  const halfThreshold = Math.ceil(total / 2);
+
+  let outcome: StageOutcome = "not_started";
+  if (finalCheckpointCompleted && finalCheckpointGold) {
+    outcome = "gold_stage";
+  } else if (finalCheckpointCompleted) {
+    outcome = "stage_clear";
+  } else if (completed >= halfThreshold) {
+    outcome = "partial_stage";
+  } else if (completed > 0) {
+    outcome = "in_progress";
+  }
+
+  const monsterState =
+    outcome === "gold_stage" || outcome === "stage_clear"
+      ? "slain"
+      : outcome === "partial_stage"
+        ? "retreated"
+        : "active";
+
+  return {
+    outcome,
+    total,
+    completed,
+    gold,
+    finalCheckpointCompleted,
+    finalCheckpointGold,
+    monsterState,
+  };
+}
+
+export function getProjectOutcome(
+  stageOutcomes: Array<{ outcome: StageOutcome }>,
+  ventureStatus?: string,
+): ProjectOutcome {
+  if (ventureStatus !== "completed") {
+    return "in_progress";
+  }
+
+  const resolvedStages = stageOutcomes.filter(
+    (stage) =>
+      stage.outcome === "partial_stage" ||
+      stage.outcome === "stage_clear" ||
+      stage.outcome === "gold_stage",
+  );
+
+  const allStagesCleared =
+    stageOutcomes.length > 0 &&
+    stageOutcomes.every(
+      (stage) =>
+        stage.outcome === "stage_clear" || stage.outcome === "gold_stage",
+    );
+  const allStagesGold =
+    stageOutcomes.length > 0 &&
+    stageOutcomes.every((stage) => stage.outcome === "gold_stage");
+  const hasPartialStage = stageOutcomes.some(
+    (stage) => stage.outcome === "partial_stage",
+  );
+
+  if (allStagesGold) {
+    return "project_perfect";
+  }
+
+  if (allStagesCleared) {
+    return "project_complete";
+  }
+
+  if (hasPartialStage || resolvedStages.length > 0) {
+    return "partial_project";
+  }
+
+  return "in_progress";
+}
+
+const BOSS_SLUG_BY_ID: Record<number, string> = {
+  1: "the_unraveller",
+  2: "the_pale_architect",
+  3: "the_hollow_king",
+  4: "the_thornwarden",
+  5: "the_mirror_witch",
+  6: "the_ashen_drake",
+  7: "the_tide_caller",
+  8: "the_gravemind",
+  9: "the_rusted_oracle",
+  10: "the_wraith_council",
+  11: "the_stonecaller",
+  12: "the_veilwalker",
+};
+
+export function getBossSlug(bossId: number): string {
+  return BOSS_SLUG_BY_ID[bossId] ?? "super_boss";
+}
+
+export type CorruptionPhase =
+  | "calm"
+  | "creeping"
+  | "desaturated"
+  | "urgent"
+  | "critical";
+
+export function getCorruptionPhase(corruptionLevel: number): CorruptionPhase {
+  if (corruptionLevel >= 90) return "critical";
+  if (corruptionLevel >= 75) return "urgent";
+  if (corruptionLevel >= 50) return "desaturated";
+  if (corruptionLevel >= 25) return "creeping";
+  return "calm";
+}
+
+export function getBossVisualStatus(corruptionLevel: number) {
+  if (corruptionLevel >= 90) return "foreground" as const;
+  if (corruptionLevel >= 25) return "present" as const;
+  return "silhouette" as const;
+}
+
+export function getBossHpFromQuality(averageQualityScore: number) {
+  const normalized = Math.max(0, Math.min(12, averageQualityScore));
+  const hpReduction = Math.round((normalized / 12) * 40);
+  return {
+    baseHp: BOSS_BASE_HP,
+    currentHp: Math.max(35, BOSS_BASE_HP - hpReduction),
+    qualityModifier: hpReduction,
+  };
+}
+
+export function getBossEncounterStyle(averageQualityScore: number) {
+  if (averageQualityScore >= 9) return "swift_shatter" as const;
+  if (averageQualityScore >= 5) return "steady_withering" as const;
+  return "long_retreat" as const;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LEVEL DEFINITIONS (50 levels)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2346,10 +2546,10 @@ export const BADGE_DEFINITIONS: BadgeDef[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 export const POINT_VALUES = {
   // Venture task completion
-  task_t1_complete: 10,
-  task_t2_complete: 15,
-  task_t3_complete: 25,
-  gold_checkpoint_bonus: 30,
+  task_t1_complete: 20,
+  task_t2_complete: 20,
+  task_t3_complete: 35,
+  gold_checkpoint_bonus: 25,
   stage_complete_bonus: 50,
   venture_complete_bonus: 200,
 

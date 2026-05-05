@@ -41,7 +41,11 @@ interface TaskSubmissionModalProps {
     toolType: string;
     points: number;
   } | null;
-  onSuccess: () => void;
+  onSuccess: (result: {
+    taskId: string;
+    checkpointId: Id<"ventureCheckpoints">;
+    taskLevel: "t1" | "t2" | "t3";
+  }) => void;
 }
 
 /** Returns a human-readable minimum requirement label per PRD §8 */
@@ -83,8 +87,6 @@ export function TaskSubmissionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [showQueuedMessage, setShowQueuedMessage] = useState(false);
-
   const submitTask = useMutation(api.worldMap.submitTaskContent);
 
   const draftKey = useMemo(
@@ -108,7 +110,6 @@ export function TaskSubmissionModal({
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      setShowQueuedMessage(false);
       setIsSubmitting(false);
     }
   }, [isOpen, task]);
@@ -127,33 +128,22 @@ export function TaskSubmissionModal({
     setIsSubmitting(true);
     setError(null);
 
-    // submitTaskContent expects a plain string; extract prose text when
-    // available (WriteTool gives { text, wordCount }) or JSON-serialize
-    // structured tool payloads so the AI scorer can read them.
-    const serialized: string =
-      typeof content === "string"
-        ? content
-        : typeof (content as Record<string, unknown>)?.text === "string"
-          ? ((content as Record<string, unknown>).text as string)
-          : JSON.stringify(content);
-
     try {
       await submitTask({
         checkpointId: task.checkpointId,
         taskLevel: task.taskLevel,
-        content: serialized,
+        content,
       });
 
       audioManager.playUI("confirm");
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(draftKey);
       }
-      setShowQueuedMessage(true);
-      onSuccess();
-      window.setTimeout(() => {
-        onClose();
-        setShowQueuedMessage(false);
-      }, 900);
+      onSuccess({
+        taskId: task.id,
+        checkpointId: task.checkpointId,
+        taskLevel: task.taskLevel,
+      });
     } catch (err) {
       audioManager.playUI("error");
       setError(err instanceof Error ? err.message : "Submission failed");
@@ -321,14 +311,14 @@ export function TaskSubmissionModal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-0 right-0 bottom-0 top-0 sm:left-1/2 sm:top-1/2 z-[101] sm:w-[min(92vw,800px)] sm:max-w-4xl sm:h-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl rounded-none max-h-screen overflow-y-auto"
+            className="fixed inset-0 z-[101] overflow-y-auto sm:grid sm:place-items-center sm:p-6"
           >
-            <div className="bg-[#111827] border-0 sm:border-2 border-white/10 sm:rounded-2xl rounded-none shadow-2xl flex flex-col h-full sm:max-h-[90vh]">
+            <div className="bg-[#111827] border-0 sm:border-2 border-white/10 rounded-none sm:rounded-2xl shadow-2xl flex min-h-full flex-col sm:min-h-0 sm:w-[min(96vw,1120px)] sm:max-h-[calc(100vh-3rem)] sm:overflow-hidden">
               {/* Header */}
-              <div className="p-4 sm:p-6 border-b border-white/10 bg-gradient-to-r from-[#6366F1]/20 to-[#8B5CF6]/20 flex-shrink-0 safe-top">
+              <div className="p-4 sm:px-5 sm:py-4 border-b border-white/10 bg-gradient-to-r from-[#6366F1]/20 to-[#8B5CF6]/20 flex-shrink-0 safe-top">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2 truncate sm:whitespace-normal">
+                    <h2 className="text-lg sm:text-xl font-bold text-white mb-1 truncate sm:whitespace-normal">
                       {task.title}
                     </h2>
                     <p className="text-xs sm:text-sm text-gray-400 line-clamp-2">
@@ -360,23 +350,12 @@ export function TaskSubmissionModal({
               </div>
 
               {/* Content Area */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 safe-bottom">
+              <div className="flex-1 overflow-visible p-4 sm:p-5 safe-bottom">
                 {!isOnline && (
                   <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
                     Offline mode detected. Your draft will stay on this device
                     until you reconnect.
                   </div>
-                )}
-
-                {showQueuedMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100"
-                  >
-                    ✅ Submission saved. AI quality scoring is running in the
-                    background — your valuation will update shortly.
-                  </motion.div>
                 )}
 
                 {/* Tool Component */}

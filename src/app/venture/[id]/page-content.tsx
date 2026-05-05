@@ -18,9 +18,15 @@ import {
   Shield,
   Map,
   Play,
+  LayoutDashboard,
+  Calendar,
+  MessageSquare,
+  Video,
+  Rss
 } from "lucide-react";
 import { VENTURE_STAGES } from "@convex/ventureConstants";
 import type { Id } from "@convex/_generated/dataModel";
+import { MonumentDisplay } from "@/components/venture/monument-display";
 
 export default function VenturePageContent() {
   const params = useParams();
@@ -62,13 +68,17 @@ export default function VenturePageContent() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">
-              {idea?.title ?? venture.status === "active" ? "Active Venture" : "Venture"}
+              {idea?.title ??
+                (venture.status === "active" ? "Active Venture" : "Venture")}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge
                 variant={venture.status === "active" ? "default" : "secondary"}
               >
                 {venture.status}
+              </Badge>
+              <Badge variant="outline">
+                {venture.projectState.replace(/_/g, " ")}
               </Badge>
               <span className="text-sm text-muted-foreground">
                 Stage {venture.currentStage} of 8
@@ -123,6 +133,75 @@ export default function VenturePageContent() {
           </Link>
         </div>
 
+        {/* Universal Tools Quick Access */}
+        <div className="mb-8 grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Link href={`/venture/${ventureId}/feed`}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-indigo-500/20 hover:border-indigo-500/50">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                <div className="p-3 bg-indigo-500/10 rounded-full">
+                  <Rss className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Contributions</h3>
+                  <p className="text-[10px] text-muted-foreground">Project Feed</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href={`/venture/${ventureId}/chat`}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-blue-500/20 hover:border-blue-500/50">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                <div className="p-3 bg-blue-500/10 rounded-full">
+                  <MessageSquare className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Group Chat</h3>
+                  <p className="text-[10px] text-muted-foreground">Real-time sync</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href={`/venture/${ventureId}/video-call`}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-rose-500/20 hover:border-rose-500/50">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                <div className="p-3 bg-rose-500/10 rounded-full">
+                  <Video className="w-5 h-5 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Video Call</h3>
+                  <p className="text-[10px] text-muted-foreground">Live session</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href={`/venture/${ventureId}/kanban`}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-amber-500/20 hover:border-amber-500/50">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                <div className="p-3 bg-amber-500/10 rounded-full">
+                  <LayoutDashboard className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Kanban</h3>
+                  <p className="text-[10px] text-muted-foreground">Task board</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href={`/venture/${ventureId}/calendar`}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-emerald-500/20 hover:border-emerald-500/50">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                <div className="p-3 bg-emerald-500/10 rounded-full">
+                  <Calendar className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Calendar</h3>
+                  <p className="text-[10px] text-muted-foreground">Timeline</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
         {/* Progress Overview */}
         <Card className="mb-8">
           <CardHeader>
@@ -164,6 +243,15 @@ export default function VenturePageContent() {
           </CardContent>
         </Card>
 
+        {venture.projectState !== "in_progress" && (
+          <div className="mb-8">
+            <MonumentDisplay
+              projectState={venture.projectState}
+              slainBosses={venture.slainBosses}
+            />
+          </div>
+        )}
+
         {/* Boss Encounters */}
         {venture.bosses.length > 0 && (
           <Card className="mb-8">
@@ -180,6 +268,9 @@ export default function VenturePageContent() {
                     bossId: number;
                     status: string;
                     corruptionLevel: number;
+                    currentHp?: number;
+                    baseHp?: number;
+                    visualStatus?: string;
                     definition?: { name: string; represents: string };
                   }) => {
                     const def = boss.definition;
@@ -215,6 +306,24 @@ export default function VenturePageContent() {
                           />
                           <span>{boss.corruptionLevel}%</span>
                         </div>
+                        {venture.superBoss && venture.superBoss.bossId === boss.bossId && (
+                          <div className="mt-2 flex items-center gap-2 text-xs">
+                            <span>Boss HP:</span>
+                            <Progress
+                              value={
+                                venture.superBoss.baseHp > 0
+                                  ? (venture.superBoss.currentHp /
+                                      venture.superBoss.baseHp) *
+                                    100
+                                  : 0
+                              }
+                              className="flex-1 h-1.5"
+                            />
+                            <span>
+                              {venture.superBoss.currentHp}/{venture.superBoss.baseHp}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   },
@@ -238,6 +347,8 @@ export default function VenturePageContent() {
                   completed: number;
                   total: number;
                   isComplete: boolean;
+                  outcome: string;
+                  monsterState: string;
                 }) => (
                   <div
                     key={stage.stage}
@@ -251,10 +362,14 @@ export default function VenturePageContent() {
                       ) : (
                         <Circle className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-xs sm:text-sm font-medium truncate">
-                        {stage.stage}: {stage.name}
-                      </span>
-                    </div>
+                    <span className="text-xs sm:text-sm font-medium truncate">
+                      {stage.stage}: {stage.name}
+                    </span>
+                    <Badge variant="outline" className="ml-auto sm:ml-0">
+                      {stage.outcome.replace(/_/g, " ")}
+                    </Badge>
+                    <Badge variant="outline">{stage.monsterState}</Badge>
+                  </div>
                     <Progress
                       value={
                         stage.total > 0
@@ -284,8 +399,9 @@ export default function VenturePageContent() {
               )
             }
           >
-            Continue to Stage {venture.currentStage}, Checkpoint{" "}
-            {venture.currentCheckpoint}
+            {venture.status === "completed"
+              ? `Review Stage ${venture.currentStage}, Checkpoint ${venture.currentCheckpoint}`
+              : `Continue to Stage ${venture.currentStage}, Checkpoint ${venture.currentCheckpoint}`}
           </Button>
         </div>
       </div>

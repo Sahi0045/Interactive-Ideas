@@ -56,6 +56,7 @@ interface KanbanToolProps {
     timestamp: number;
   };
   isSubmitting?: boolean;
+  isStandalone?: boolean;
 }
 
 // Draggable Card Component
@@ -156,6 +157,7 @@ export function KanbanTool({
   onSubmit,
   initialContent,
   isSubmitting,
+  isStandalone,
 }: KanbanToolProps) {
   const [cards, setCards] = useState<KanbanCard[]>(initialContent?.cards || []);
   const [newCardTitle, setNewCardTitle] = useState("");
@@ -379,12 +381,12 @@ export function KanbanTool({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
+                {isStandalone ? "Saving..." : "Submitting..."}
               </>
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Submit Board
+                {isStandalone ? "Save Board" : "Submit Board"}
               </>
             )}
           </Button>

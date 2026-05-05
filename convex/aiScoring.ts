@@ -339,6 +339,175 @@ function parseAIResponse(
   };
 }
 
+type WriteAssistMode = "outline" | "strengthen" | "sharpen";
+
+interface WriteAssistResult {
+  suggestion: string;
+  bullets: string[];
+  rewrite: string;
+  modelUsed: string;
+}
+
+function buildWriteAssistPrompt(
+  prompt: string,
+  draft: string,
+  mode: WriteAssistMode,
+): string {
+  return `You are helping a founder improve a checkpoint submission.
+
+TASK PROMPT:
+"${prompt}"
+
+CURRENT DRAFT:
+"${draft || "(empty draft)"}"
+
+MODE:
+${mode}
+
+Respond ONLY with valid JSON:
+{
+  "suggestion": "<2-3 sentence coaching note>",
+  "bullets": ["<bullet 1>", "<bullet 2>", "<bullet 3>"],
+  "rewrite": "<a concrete improved passage in markdown>"
+}
+
+Rules:
+- Keep the advice concrete and specific to the prompt.
+- If mode is outline, produce a structured starting draft.
+- If mode is strengthen, add specifics, evidence hooks, and sharper framing.
+- If mode is sharpen, reduce fluff and tighten the writing.
+- Do not include markdown fences or extra commentary outside JSON.`;
+}
+
+function parseWriteAssistResponse(
+  raw: string,
+  modelUsed: string,
+): WriteAssistResult {
+  const cleaned = raw
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(`Could not parse JSON from AI response: ${raw.slice(0, 200)}`);
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]) as {
+    suggestion?: unknown;
+    bullets?: unknown;
+    rewrite?: unknown;
+  };
+
+  return {
+    suggestion: String(
+      parsed.suggestion ?? "Add concrete evidence, named actors, and a clearer next step.",
+    ),
+    bullets: Array.isArray(parsed.bullets)
+      ? parsed.bullets
+          .map((bullet) => String(bullet).trim())
+          .filter(Boolean)
+          .slice(0, 5)
+      : [],
+    rewrite: String(parsed.rewrite ?? ""),
+    modelUsed,
+  };
+}
+
+function mockWriteAssist(
+  prompt: string,
+  draft: string,
+  mode: WriteAssistMode,
+): WriteAssistResult {
+  const trimmedDraft = draft.trim();
+  const firstSentence =
+    trimmedDraft.split(/[.!?]\s/).find((sentence) => sentence.trim())?.trim() ??
+    "State the problem in one sentence.";
+
+  if (mode === "outline") {
+    return {
+      suggestion:
+        "Start with the situation, name the user, then quantify the cost of the problem before proposing a direction.",
+      bullets: [
+        "Who has the problem, and in what context?",
+        "What happens today, and what does it cost in time, money, or frustration?",
+        "What specific evidence or example proves the problem is real?",
+      ],
+      rewrite: `## Working outline\n\n- User and context\n- Problem moment\n- Cost of the problem\n- Evidence or example\n- Proposed next step\n\n**Starter line:** ${firstSentence}`,
+      modelUsed: "mock",
+    };
+  }
+
+  if (mode === "sharpen") {
+    return {
+      suggestion:
+        "Tighten the draft by removing generic claims and replacing them with named users, numbers, and a direct conclusion.",
+      bullets: [
+        "Cut filler phrases like 'very important' or 'really useful'.",
+        "Replace broad claims with one number, quote, or concrete example.",
+        "End with a clear decision or next step.",
+      ],
+      rewrite: trimmedDraft
+        ? trimmedDraft
+            .split(/\s+/)
+            .slice(0, 120)
+            .join(" ")
+        : `The problem affects a specific user in a specific moment. The cost is visible and measurable. The next step is to validate it with real evidence tied to ${prompt}.`,
+      modelUsed: "mock",
+    };
+  }
+
+  return {
+    suggestion:
+      "Strengthen the submission by adding evidence hooks, sharper differentiation, and one explicit decision statement.",
+    bullets: [
+      "Name the target user and the moment the problem appears.",
+      "Add one proof point: a quote, metric, link, or observed example.",
+      "State what you will do next based on this checkpoint.",
+    ],
+    rewrite: trimmedDraft
+      ? `${trimmedDraft}\n\n### Strengthen this\nAdd a concrete example, a measurable cost, and the decision this evidence supports.`
+      : `The user is [specific role] in [specific context]. The problem appears when [moment]. It costs [time/money/frustration]. Evidence from [source] shows the problem is real, which supports the next decision: [decision].`,
+    modelUsed: "mock",
+  };
+}
+
+async function generateWriteAssistWithOpenAI(
+  prompt: string,
+  draft: string,
+  mode: WriteAssistMode,
+  openAIApiKey: string,
+): Promise<WriteAssistResult> {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAIApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: buildWriteAssistPrompt(prompt, draft, mode),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`OpenAI API error ${response.status}: ${body}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const raw = data.choices?.[0]?.message?.content ?? "";
+  return parseWriteAssistResponse(raw, "gpt-4o-mini");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERNAL MUTATION — save evaluation result to DB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -414,6 +583,37 @@ export const saveEvaluationResult = internalMutation({
         evaluatedAt: now,
       });
     }
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+export const generateWriteAssist = action({
+  args: {
+    prompt: v.string(),
+    draft: v.optional(v.string()),
+    mode: v.union(
+      v.literal("outline"),
+      v.literal("strengthen"),
+      v.literal("sharpen"),
+    ),
+  },
+  handler: async (_ctx, args) => {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+    try {
+      if (OPENAI_API_KEY) {
+        return await generateWriteAssistWithOpenAI(
+          args.prompt,
+          args.draft ?? "",
+          args.mode,
+          OPENAI_API_KEY,
+        );
+      }
+    } catch (error) {
+      console.error("generateWriteAssist failed, falling back to mock", error);
+    }
+
+    return mockWriteAssist(args.prompt, args.draft ?? "", args.mode);
   },
 });
 

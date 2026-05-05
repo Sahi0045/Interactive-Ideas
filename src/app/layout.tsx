@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono, Sora } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 
 export const dynamic = 'force-dynamic';
@@ -10,24 +9,6 @@ import ChatWidget from "@/components/chat/ChatWidget";
 import { ChatProvider } from "@/components/chat/ChatContext";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import "./globals.css";
-
-const displayFont = Sora({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const bodyFont = DM_Sans({
-  variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
-
-const monoFont = JetBrains_Mono({
-  variable: "--font-code",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -71,7 +52,17 @@ export default function RootLayout({
       <ConvexClientProvider>
         <html lang="en" className="dark" suppressHydrationWarning>
           <body
-            className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} font-sans antialiased`}
+            className="font-sans antialiased"
+            style={
+              {
+                "--font-display":
+                  'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+                "--font-body":
+                  'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+                "--font-code":
+                  '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+              } as React.CSSProperties
+            }
           >
             <ThemeProvider>
               <ChatProvider>
@@ -87,4 +78,3 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
-

@@ -44,6 +44,14 @@ const INITIAL_BADGES = [
     category: "social",
     criteria: { type: "comment_count", threshold: 5 },
   },
+  {
+    slug: "legendary-venture-completion",
+    name: "Legendary Completion",
+    description: "Completed a venture with every stage ending in gold",
+    icon: "Crown",
+    category: "aspirational",
+    criteria: { type: "manual_award", threshold: 1 },
+  },
 ];
 
 // Seed initial badges (idempotent)
@@ -174,12 +182,18 @@ export const awardBadge = internalMutation({
     slug: v.string(),
   },
   handler: async (ctx, args) => {
-    const badge = await ctx.db
+    let badge = await ctx.db
       .query("badges")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
 
-    if (!badge) return;
+    if (!badge) {
+      const fallback = INITIAL_BADGES.find((entry) => entry.slug === args.slug);
+      if (!fallback) return;
+      const badgeId = await ctx.db.insert("badges", fallback);
+      badge = await ctx.db.get(badgeId);
+      if (!badge) return;
+    }
 
     const existing = await ctx.db
       .query("userBadges")
@@ -263,7 +277,6 @@ export const checkBadges = internalMutation({
 });
 
 // Helper for awarding
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkAndAward(ctx: any, userId: Id<"users">, slug: string) {
   const badge = await ctx.db
