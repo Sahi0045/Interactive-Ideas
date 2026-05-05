@@ -1,9 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { api } from '@convex/_generated/api'
-import { ConvexHttpClient } from 'convex/browser'
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+import { fetchQuery } from 'convex/nextjs'
 
 const isPublicRoute = createRouteMatcher(['/', '/sign-in(.*)', '/sign-up(.*)', '/onboarding', '/profile-setup'])
 
@@ -31,10 +29,17 @@ export default clerkMiddleware(async (auth, req) => {
         }
 
         // ── Slow path: query Convex (once per TTL per browser session) ───────
-        const isProfileComplete = await convex.query(api.users.isProfileComplete, { clerkId: userId })
+        try {
+          // Use fetchQuery which is optimized for Next.js Edge / Server components
+          const isProfileComplete = await fetchQuery(api.users.isProfileComplete, { clerkId: userId })
 
-        if (!isProfileComplete) {
-          return NextResponse.redirect(new URL('/profile-setup', req.url))
+          if (!isProfileComplete) {
+            return NextResponse.redirect(new URL('/profile-setup', req.url))
+          }
+        } catch (error) {
+          console.error("Convex query failed in middleware:", error);
+          // Allow the request to proceed instead of failing the middleware and causing a 500 error.
+          // The client-side will still handle profile setup redirects if needed.
         }
 
         // Cache the positive result so subsequent requests skip the Convex call
