@@ -2844,32 +2844,13 @@ export class WorldMapScene extends Phaser.Scene {
    * World brightness = accumulated base + stage layer (0% to 100%)
    */
   private handleUpdateBrightness(event?: { brightness: number }): void {
-    if (typeof event?.brightness === "number") {
-      this.currentBrightness = Math.max(0, Math.min(100, event.brightness));
-      this.updateBrightnessFilter(this.currentBrightness);
-      return;
-    }
-
-    // Calculate accumulated base brightness from completed stages (7 stages max = 60%)
-    const accumulatedBase = Math.min(this.completedStages * 8.57, 60);
-
-    // Calculate stage layer brightness (current stage progress = 0-40%)
-    const stageLayer =
-      this.stageTasksTotal > 0
-        ? (this.stageTasksCompleted / this.stageTasksTotal) * 40
-        : 0;
-
-    // Total world brightness
-    const worldBrightness = accumulatedBase + stageLayer;
-
-    // Clamp to 0-100%
-    const finalBrightness = Math.max(0, Math.min(100, worldBrightness));
-
+    // Force full brightness for all stages as requested by user
+    const finalBrightness = 100;
     this.currentBrightness = finalBrightness;
     this.updateBrightnessFilter(finalBrightness);
 
     console.log(
-      `[WorldMapScene] Brightness: 100% (Forced) Original: ${finalBrightness.toFixed(2)}% (Base: ${accumulatedBase.toFixed(2)}% + Stage: ${stageLayer.toFixed(2)}%)`,
+      `[WorldMapScene] Brightness: 100% (Forced) - Requested for all stages.`,
     );
   }
 

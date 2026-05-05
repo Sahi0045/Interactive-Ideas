@@ -118,22 +118,10 @@ function computeBrightness(
   }
 
   // ── 3. Apply formula ───────────────────────────────────────────────────────
-  const accumulatedBase = Math.min(
-    completedStages * PER_STAGE_CONTRIBUTION,
-    MAX_ACCUMULATED,
-  );
-
-  const stageLayer =
-    totalTasksInCurrentStage > 0
-      ? (tasksDoneInCurrentStage / totalTasksInCurrentStage) * MAX_STAGE_LAYER
-      : 0;
-
-  const worldBrightness = Math.min(accumulatedBase + stageLayer, 100);
-
   return {
-    accumulatedBase: Math.round(accumulatedBase * 100) / 100,
-    stageLayer: Math.round(stageLayer * 100) / 100,
-    worldBrightness: Math.round(worldBrightness * 100) / 100,
+    accumulatedBase: 100,
+    stageLayer: 0,
+    worldBrightness: 100,
   };
 }
 

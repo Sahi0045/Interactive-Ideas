@@ -797,12 +797,11 @@ function StageResetNotice({
           New Stage Unlocked
         </p>
         <p className="mt-1 text-sm text-white">
-          Stage {stage} begins with your permanent base brightness at{" "}
+          Stage {stage} is now unlocked. Your world brightness is set to{" "}
           <span className="font-black text-indigo-300">
-            {baseBrightness.toFixed(2)}%
+            100.00%
           </span>
-          . The extra stage glow builds back up as you complete this stage’s
-          tasks.
+          {" "}for maximum clarity as you build your venture.
         </p>
       </div>
     </motion.div>
@@ -2217,7 +2216,7 @@ export default function MapPage() {
                       ? 0.26
                       : corruptionPhase === "creeping"
                         ? 0.16
-                        : 0.06,
+                        : 0,
               background:
                 corruptionPhase === "critical"
                   ? "radial-gradient(circle at center, rgba(140, 40, 40, 0.05), rgba(76, 0, 94, 0.52))"
