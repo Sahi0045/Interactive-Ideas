@@ -23,7 +23,6 @@ import type { CheckpointState } from "@/lib/phaser/utils/event-bridge";
 import { HUD } from "@/components/hud/HUD";
 import { LevelUpSequence } from "@/components/animations/LevelUpSequence";
 import { BadgeAwardSequence } from "@/components/animations/BadgeAwardSequence";
-import { FirstCheckpointPulse } from "@/components/map/FirstCheckpointPulse";
 import { GoldCheckpointPopup } from "@/components/notifications/GoldCheckpointPopup";
 import { useSearchParams } from "next/navigation";
 import { TaskSubmissionModal } from "@/components/map/TaskSubmissionModal";
@@ -1047,10 +1046,6 @@ export default function MapPage() {
   const [badgeQueue, setBadgeQueue] = useState<BadgePayload[]>([]);
   const activeBadge = badgeQueue[0] ?? null;
 
-  // Tutorial: First checkpoint pulse
-  const [showFirstCheckpointPulse, setShowFirstCheckpointPulse] =
-    useState(false);
-
   // Gold checkpoint notification state
   const [goldCheckpointNotification, setGoldCheckpointNotification] = useState<{
     ventureName: string;
@@ -1387,29 +1382,6 @@ export default function MapPage() {
     });
   }, [seedFlags]);
 
-  // Tutorial: Show first checkpoint pulse after map intro tutorial
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const tutorialCompleted =
-      localStorage.getItem("tutorial_completed") === "true";
-    const pulseShown =
-      localStorage.getItem("first_checkpoint_pulse_shown") === "true";
-
-    // Show pulse if tutorial just completed but pulse hasn't been shown yet
-    if (
-      tutorialCompleted &&
-      !pulseShown &&
-      phaserReady &&
-      checkpoints.length > 0
-    ) {
-      // Only show if user is on checkpoint 1
-      const firstCheckpoint = checkpoints[0];
-      if (firstCheckpoint && activeCP === 1) {
-        setShowFirstCheckpointPulse(true);
-      }
-    }
-  }, [phaserReady, checkpoints, activeCP]);
 
   // XP / Level from Convex
   const level = levelData?.level ?? 1;
@@ -1785,14 +1757,6 @@ export default function MapPage() {
         (c) => c.stage === e.stage && c.checkpoint === e.checkpoint,
       );
 
-      // Hide first checkpoint pulse when any checkpoint is clicked
-      if (showFirstCheckpointPulse) {
-        setShowFirstCheckpointPulse(false);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("first_checkpoint_pulse_shown", "true");
-        }
-      }
-
       if (cp) {
         const status = deriveCheckpointStatus(cp, activeStage, activeCP);
         if (status === "locked") {
@@ -1819,7 +1783,6 @@ export default function MapPage() {
     activeStage,
     activeCP,
     activeVenture,
-    showFirstCheckpointPulse,
     buildCheckpointDetail,
   ]);
 
@@ -2385,18 +2348,6 @@ export default function MapPage() {
               className="absolute inset-0 z-[55]"
               style={{ left: "420px" }}
               onClick={() => setIsToolsPanelOpen(false)}
-            />
-          )}
-
-          {/* First checkpoint pulse tutorial */}
-          {showFirstCheckpointPulse && (
-            <FirstCheckpointPulse
-              onCheckpointClick={() => {
-                setShowFirstCheckpointPulse(false);
-                if (typeof window !== "undefined") {
-                  localStorage.setItem("first_checkpoint_pulse_shown", "true");
-                }
-              }}
             />
           )}
 

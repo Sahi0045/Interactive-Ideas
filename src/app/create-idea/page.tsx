@@ -48,6 +48,7 @@ export default function CreateIdeaPage() {
 
   // Initialize Convex mutation
   const createIdea = useMutation(api.ideas.createIdea);
+  const createVenture = useMutation(api.ventures.createVenture);
   const generateUploadUrl = useMutation(api.ideas.generateUploadUrl);
   const attachFileToIdea = useMutation(api.ideas.attachFileToIdea);
 
@@ -161,6 +162,13 @@ export default function CreateIdeaPage() {
         visibility: formData.visibility,
       });
       const createdIdeaId = res.ideaId;
+
+      // Automatically create the venture for this idea
+      await createVenture({
+        ideaId: createdIdeaId,
+        skills: formData.skills,
+        industries: formData.industries,
+      });
 
       if (selectedFiles.length === 1) {
         setUploadError("");
